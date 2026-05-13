@@ -75,5 +75,71 @@
   </div>
 
   <script type="module" src="js/main.js"></script>
+  <section class="writeup">
+    <div class="writeup-inner">
+ 
+      <h2>Design Rationale</h2>
+      <p>
+        California's wildfire crisis has intensified dramatically over the years,
+        driven by drought, rising temperatures, and expanded development in
+        susceptible landscapes. This visualization includes interactive exploration of how
+        fire activity has evolved over space and time across the state using NASA's
+        MODIS Terra satellite and historical fire perimeter data.
+      <p>
+        <strong>Satellite tile overlay:</strong> Rather than abstracting fire locations into
+        dots on a blank basemap, we use the NASA GIBS REST API (WMTS) to fetch actual MODIS
+        satellite imagery tiles projected over California. This lets viewers see smoke plumes,
+        burn scars, and active fire fronts in their real geographic context. A D3 SVG layer
+        sits on top to render county boundaries and handle click interactions.
+      </p>
+      <p>
+        <strong>Time slider:</strong> Temporal change is the central story here. A static map
+        can show accumulated fire history but not <em>when</em> or <em>how rapidly</em>
+        conditions evolve. The slider lets viewers scrub day-by-day through any fire season,
+        exposing seasonal patterns (peak activity: July–October) and year-over-year escalation.
+        An animated playback mode runs the map forward automatically.
+      </p>
+      <p>
+        <strong>Layer toggle:</strong> Daytime thermal anomalies highlight active hotspots;
+        nighttime detections capture smoldering fires after dark; true color provides
+        atmospheric context including smoke plumes and terrain. Toggling between layers lets
+        viewers examine the same event from multiple sensor perspectives.
+      </p>
+      <p>
+        <strong>County click + sidebar stats:</strong> Satellite imagery conveys location
+        and extent but not magnitude. Pairing the map with an acreage bar chart (from the
+        CAL FIRE CSV) grounds visual impressions in concrete numbers. Clicking a county
+        surfaces localized statistics — total fires, total acres, largest single fire —
+        enabling regional comparisons impossible in a static view.
+      </p>
+      <p>
+        <strong>Color and typography:</strong> A dark background with amber/orange accents
+        reinforces the fire theme while maximizing contrast for the satellite imagery. Bebas
+        Neue and Space Mono give the interface a data-instrument character appropriate to
+        a scientific monitoring tool.
+      </p>
+ 
+      <h3>Data Transformations</h3>
+      <p>
+        CAL FIRE FRAP fire perimeters were filtered to California fires from 2000–2024 and
+        aggregated in two ways: by year (total acres burned, for the bar chart) and by county
+        (fire count, total acres, largest fire name and size, worst year). GIBS WMTS tiles are
+        requested at 250 m/pixel resolution using the EPSG:4326 geographic projection; the date
+        parameter updates on every slider change. Daily cloud cover can occasionally obscure
+        imagery — comparing nearby dates usually resolves this.
+      </p>
+ 
+      <h3>Development Process</h3>
+      <p><em>Team: [Add names here]</em></p>
+      <p>
+        Work was split as follows: [describe who did what]. Total development time was
+        approximately [X] person-hours. The most time-consuming aspects were aligning the
+        GIBS WMTS tile coordinate system with the D3 geographic projection for California,
+        and computing county-level aggregates from the CAL FIRE GeoJSON.
+        [Expand before final submission.]
+      </p>
+ 
+    </div>
+  </section>
 </body>
 </html>

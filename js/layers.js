@@ -37,23 +37,23 @@ export async function loadCountyLayer() {
 
     onEachFeature: (feature, layer) => {
 
-      layer.on("mouseover", () => {
+    layer.on("mouseover", () => {
 
         layer.setStyle({
-          color: "white",
-          weight: 2
+        color: "white",
+        weight: 2
         });
 
         document.getElementById("county-name").innerText =
-          feature.properties.NAME || "Unknown";
-      });
+        feature.properties.name || "Unknown";
+    });
 
-      layer.on("mouseout", () => {
+    layer.on("mouseout", () => {
 
         countyLayer.resetStyle(layer);
 
         document.getElementById("county-name").innerText = "None";
-      });
+    });
 
     }
 
@@ -105,7 +105,7 @@ export async function loadFireLayer(date) {
 
       layer.bindTooltip(`
         <div class="fire-tooltip">
-          <strong>${feature.properties.Name || "Fire"}</strong><br/>
+          <strong>${feature.properties.name || "Fire"}</strong><br/>
           Acres: ${feature.properties.AcresBurned || "Unknown"}<br/>
           County: ${feature.properties.County || "Unknown"}
         </div>

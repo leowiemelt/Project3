@@ -3,35 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>California on Fire — 2020 MODIS Wildfire Explorer</title>
- 
+  <title>California on Fire</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
- 
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
- 
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
- 
+
   <header>
     <div class="header-inner">
       <div class="title-block">
         <h1>CALIFORNIA <span class="fire-word">ON FIRE</span></h1>
-        <p class="subtitle">
-          Exploring 2020 wildfire activity using NASA MODIS Terra satellite &amp
-        </p>
+        <p class="subtitle">2020 wildfire activity · NASA MODIS Terra satellite · CAL FIRE FRAP</p>
       </div>
-      <div class="header-right">
-        <div class="date-pill" id="date-display">Loading…</div>
-        <div class="data-badges">
-          <span class="badge">NASA GIBS WMTS</span>
-          <span class="badge">CAL FIRE FRAP</span>
-        </div>
-      </div>
+      <div id="date-display" class="date-display">—</div>
     </div>
   </header>
- 
+
   <nav class="controls-bar">
     <div class="control-group">
       <span class="control-label">SATELLITE LAYER</span>
@@ -42,15 +31,15 @@
       </div>
     </div>
     <div class="control-group">
-      <span class="control-label">OVERLAY OPACITY</span>
-      <input type="range" id="opacity-slider" min="0.2" max="1" step="0.05" value="0.85" />
+      <span class="control-label">FIRE LAYER OPACITY</span>
+      <input type="range" id="opacity-slider" min="0.1" max="1" step="0.05" value="0.85" />
     </div>
-    <div class="control-group county-control">
-      <span class="control-label">SELECTED COUNTY</span>
+    <div class="control-group" style="margin-left:auto">
+      <span class="control-label">HOVERING</span>
       <span id="county-hover-label" class="county-hover-label">—</span>
     </div>
   </nav>
- 
+
   <main class="viz-layout">
 
     <div class="map-panel">
@@ -58,53 +47,52 @@
         <canvas id="tile-canvas"></canvas>
         <svg id="map-svg"></svg>
         <div id="map-tooltip" class="tooltip hidden"></div>
-        <div class="map-hint">Click a county for fire statistics</div>
+        <div class="map-hint">Click a county for statistics</div>
       </div>
     </div>
- 
+
     <aside class="sidebar">
- 
-      <div class="card" id="county-card">
+
+      <div class="card">
         <div class="card-label">COUNTY DETAIL</div>
         <div id="county-name" class="county-name-display">Click a county</div>
         <div id="county-stats" class="county-stats" style="display:none">
           <div class="stat-row">
-            <span class="stat-label">Fires on record</span>
+            <span class="stat-label" id="lbl-fires">Hotspot detections</span>
             <span class="stat-value" id="stat-fires">—</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">Total acres burned</span>
+            <span class="stat-label" id="lbl-acres">Total FRP (MW)</span>
             <span class="stat-value" id="stat-acres">—</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">Largest fire</span>
+            <span class="stat-label" id="lbl-largest">Largest fire</span>
             <span class="stat-value" id="stat-largest">—</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">Worst year</span>
+            <span class="stat-label" id="lbl-worst">Worst year</span>
             <span class="stat-value" id="stat-worst-year">—</span>
           </div>
         </div>
       </div>
- 
+
       <div class="card chart-card">
-        <div class="card-label">STATEWIDE ACRES BURNED PER YEAR
-          <span class="card-sublabel">· click bar to jump</span>
-        </div>
+        <div class="card-label" id="chart-label">FIRE ACTIVITY BY MONTH (2020)</div>
         <svg id="bar-chart"></svg>
       </div>
- 
+
       <div class="card">
         <div class="card-label">LARGEST FIRES ON RECORD</div>
         <ol id="top-fires-list" class="top-fires-list"></ol>
       </div>
- 
+
     </aside>
   </main>
- 
+
+  <!-- TIME SLIDER -->
   <section class="slider-section">
     <div class="slider-inner">
-      <button id="play-btn" class="play-btn" title="Play / Pause">▶</button>
+      <button id="play-btn" class="play-btn">▶</button>
       <div class="slider-wrap">
         <input type="range" id="date-slider" min="0" max="0" step="1" value="0" />
         <div id="year-ticks" class="year-ticks"></div>
@@ -113,14 +101,13 @@
         <span class="control-label">SPEED</span>
         <select id="speed-select" class="speed-select">
           <option value="2000">Slow</option>
-          <option value="1100" selected>Normal</option>
-          <option value="500">Fast</option>
+          <option value="600" selected>Normal</option>
+          <option value="150">Fast</option>
         </select>
       </div>
     </div>
   </section>
-
-  <section class="writeup">
+<section class="writeup">
     <div class="writeup-inner">
 
       <h2>Design Rationale</h2>
@@ -195,6 +182,7 @@
       </p>
     </div>
   </section>
+  
 
   <script src="js/layers.js"></script>
   <script src="js/slider.js"></script>

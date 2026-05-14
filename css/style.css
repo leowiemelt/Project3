@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════
+   CALIFORNIA ON FIRE — style.css
+═══════════════════════════════════════════════════════════ */
+
 :root {
   --bg:         #0d0d0d;
   --bg2:        #141414;
@@ -33,6 +37,7 @@ body {
   overflow-x: hidden;
 }
 
+/* ── HEADER ──────────────────────────────────────────────── */
 header {
   background: var(--bg2);
   border-bottom: 2px solid var(--fire-lo);
@@ -76,6 +81,7 @@ h1 {
   text-align: right;
 }
 
+/* ── CONTROLS ────────────────────────────────────────────── */
 .controls-bar {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
@@ -132,6 +138,7 @@ input[type="range"]#opacity-slider {
   min-width: 80px;
 }
 
+/* ── VIZ LAYOUT ──────────────────────────────────────────── */
 .viz-layout {
   display: flex;
   height: var(--map-h);
@@ -139,6 +146,7 @@ input[type="range"]#opacity-slider {
   flex-shrink: 0;
 }
 
+/* ── MAP ─────────────────────────────────────────────────── */
 .map-panel {
   flex: 1;
   position: relative;
@@ -234,11 +242,12 @@ input[type="range"]#opacity-slider {
   border-bottom: 1px solid var(--border);
 }
 
+/* ── KEY FIX: card-label is now clearly legible ── */
 .card-label {
   font-family: var(--mono);
-  font-size: 0.65rem;     
-  color: #aaa;         
-  letter-spacing: 0.06em;  
+  font-size: 0.65rem;      /* was 0.54rem — too small */
+  color: #aaa;             /* brighter than var(--text-muted) */
+  letter-spacing: 0.06em;  /* less extreme than 0.14em */
   text-transform: uppercase;
   margin-bottom: 10px;
   line-height: 1.4;
@@ -274,6 +283,7 @@ input[type="range"]#opacity-slider {
   font-weight: 700;
 }
 
+/* Bar chart */
 .chart-card { flex: 1; min-height: 185px; }
 
 #bar-chart {
@@ -291,6 +301,7 @@ input[type="range"]#opacity-slider {
 .axis text     { font-family: var(--mono); font-size: 0.52rem; fill: var(--text-muted); }
 .axis path, .axis line { stroke: var(--border-hi); }
 
+/* Top fires */
 .top-fires-list {
   list-style: none;
   padding: 0;
@@ -317,6 +328,7 @@ input[type="range"]#opacity-slider {
 .fire-acres { color: var(--fire-hi); font-weight:700; white-space:nowrap; }
 .fire-year  { color: var(--smoke); white-space:nowrap; }
 
+/* ── TIME SLIDER ─────────────────────────────────────────── */
 .slider-section {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
@@ -380,6 +392,7 @@ input[type="range"]#date-slider {
   cursor: pointer;
 }
 
+/* ── WRITEUP ─────────────────────────────────────────────── */
 .writeup {
   background: var(--bg2);
   border-top: 2px solid var(--border-hi);
@@ -417,6 +430,7 @@ input[type="range"]#date-slider {
 .writeup strong { color: var(--text); font-weight: 500; }
 .writeup code   { font-family: var(--mono); font-size: 0.82rem; color: #bbb; }
 
+/* ── LOADING ─────────────────────────────────────────────── */
 .loading-overlay {
   position: absolute; inset: 0;
   background: rgba(6,8,16,0.8);
@@ -432,10 +446,12 @@ input[type="range"]#date-slider {
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
+/* ── SCROLLBAR ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
 
+/* ── BADGE ───────────────────────────────────────────────── */
 .badge {
   font-family: var(--mono);
   font-size: 0.55rem;

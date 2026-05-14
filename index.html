@@ -139,7 +139,7 @@
         <strong>Time slider with playback:</strong> Temporal change is the central story here.
         A static map can show the overall pattern of fire-prone regions but cannot reveal
         <em>when</em> fires occur or <em>how rapidly</em> conditions escalate season by season.
-        The slider steps through monthly dates from 2000 to 2024, updating the GIBS tile
+        The slider steps through monthly dates from 2020, updating the GIBS tile
         request on each change. Animated playback lets the map run forward automatically,
         making the seasonal pulse of fire activity (peaking July–October each year) immediately
         visible. Clicking a bar in the year chart jumps the slider directly to that year.
@@ -161,24 +161,6 @@
         creating a coherent visual language. Bebas Neue (display) and Space Mono (data labels)
         give the interface a scientific monitoring instrument character without sacrificing
         readability.
-      </p>
- 
-      <h3>Data Transformations</h3>
-      <p>
-        The CAL FIRE FRAP fire perimeters dataset was filtered to California fires from
-        2000–2024. Each record's acreage (<code>GIS_ACRES</code>) was summed by year to
-        produce the statewide bar chart, and summed by county to produce the detail card
-        statistics (fire count, total acres, largest single fire by acreage, worst year
-        by total acreage). County matching uses normalized uppercase comparison between the
-        fire dataset's county field and the county GeoJSON's <code>name</code> property.
-      </p>
-      <p>
-        GIBS WMTS tiles are requested at 1 km resolution for fire detection layers
-        (<code>1km</code> TileMatrixSet, max zoom level 6) and 250 m for TrueColor
-        (<code>250m</code> TileMatrixSet, max zoom level 8). The date parameter in each
-        tile URL is updated on every slider step. Monthly date steps are used (the 1st of
-        each month) rather than daily, since individual days can be entirely cloud-obscured;
-        monthly steps balance temporal resolution against imagery availability.
       </p>
     </div>
   </section>

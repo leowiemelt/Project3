@@ -1,4 +1,5 @@
 const Slider = (() => {
+  // ── 2020 only — matches fires.csv coverage ──────────────────
   const START = '2020-01-01';
   const END   = '2020-12-31';
 

@@ -244,6 +244,9 @@ async function main() {
     Sidebar.init(fireData);
     MapViz.loadCounties(counties);
 
+    // Pass raw CSV rows to map for SVG dot rendering
+    if (csvFire?.length) MapViz.loadHotspots(csvFire);
+
     Slider.onChange(date  => MapViz.setDate(date));
     Layers.onChange(layer => MapViz.setLayer(layer));
 

@@ -2,12 +2,10 @@
  * main.js
  */
 
-// ── County key normalizer ─────────────────────────────────────
 function _countyKey(raw) {
   return (raw || '').toLowerCase().replace(/\s*county\s*$/i, '').trim();
 }
 
-// ── CAL FIRE field candidates ─────────────────────────────────
 const F_YEAR   = ['YEAR_','YEAR','FIRE_YEAR','year'];
 const F_ACRES  = ['GIS_ACRES','AcresBurned','ACRES','acres'];
 const F_NAME   = ['FIRE_NAME','FIRENAME','name','Name','FIRE_NAM'];
@@ -28,19 +26,12 @@ function processGeoData(geojson) {
   const byCounty = new Map();
   const all      = [];
 
-  const sample = geojson.features[0]?.properties || {};
-  console.log('calfire fields: ' + Object.keys(sample).join(', '));
-
   geojson.features.forEach(f => {
     const p    = f.properties || {};
-    const rawY = _pick(p, F_YEAR);
-    const rawA = _pick(p, F_ACRES);
-    const rawN = _pick(p, F_NAME);
-    const rawC = _pick(p, F_COUNTY);
-
-    const year  = rawY ? String(rawY).slice(0,4) : null;
-    const acres = parseFloat(rawA) || 0;
-    const name  = rawN || 'Unknown';
+    const year  = _pick(p, F_YEAR)  ? String(_pick(p, F_YEAR)).slice(0,4) : null;
+    const acres = parseFloat(_pick(p, F_ACRES)) || 0;
+    const name  = _pick(p, F_NAME)  || 'Unknown';
+    const rawC  = _pick(p, F_COUNTY);
     const ckey  = rawC ? _countyKey(rawC) : null;
 
     if (!year || +year < 1980 || +year > 2024 || acres <= 0) return;
@@ -50,10 +41,7 @@ function processGeoData(geojson) {
 
     if (ckey) {
       if (!byCounty.has(ckey)) {
-        byCounty.set(ckey, {
-          fires:0, acres:0, largest:'—', largestAcres:0,
-          worstYear:year, worstAcres:0,
-        });
+        byCounty.set(ckey, { fires:0, acres:0, largest:'—', largestAcres:0, worstYear:year, worstAcres:0 });
       }
       const c = byCounty.get(ckey);
       c.fires++;
@@ -67,23 +55,17 @@ function processGeoData(geojson) {
     all.push({ name, acres, year });
   });
 
-  console.log(`calfire: ${all.length} fires, ${byCounty.size} counties`);
-  if (byCounty.size === 0) console.warn('calfire: county field not matched — check field names above');
-
-  const topFires = [...all].sort((a,b)=>b.acres-a.acres).slice(0,8);
+  const topFires = [...all].sort((a,b) => b.acres - a.acres).slice(0, 8);
   return { byMonth, byCounty, topFires, isFRP: false };
 }
 
-// ── Process fires.csv (monthly totals only, synchronous) ───────
+// ── Process fires.csv ─────────────────────────────────────────
 
 let _spatialJob = null;
 
 function processCsvData(rows, countiesGeo) {
   const byMonth  = new Map();
   const byCounty = new Map();
-
-  const cols = Object.keys(rows[0] || {});
-  console.log('fires.csv cols: ' + cols.join(', '));
 
   rows.forEach(r => {
     const date = r.acq_date || r.ACQ_DATE || '';
@@ -93,20 +75,16 @@ function processCsvData(rows, countiesGeo) {
     byMonth.set(mo, (byMonth.get(mo) || 0) + frp);
   });
 
-  console.log(`fires.csv: ${rows.length} rows, ${byMonth.size} months`);
-  console.log('months: ' + [...byMonth.keys()].sort().join(', '));
-
   _spatialJob = { rows, countiesGeo, byCounty };
   return { byMonth, byCounty, topFires: [], isFRP: true };
 }
 
-// ── Deferred spatial join (non-blocking, batched) ─────────────
+// ── Deferred spatial join ─────────────────────────────────────
 
 function _runSpatialJoin() {
   if (!_spatialJob) return;
   const { rows, countiesGeo, byCounty } = _spatialJob;
   _spatialJob = null;
-  console.log('spatial join starting…');
 
   const features = countiesGeo.features.map(f => ({
     feature: f,
@@ -133,16 +111,10 @@ function _runSpatialJoin() {
         }
       }
     }
-    if (i < rows.length) {
-      setTimeout(step, 0);
-    } else {
-      console.log(`spatial join done: ${byCounty.size} counties`);
-    }
+    if (i < rows.length) setTimeout(step, 0);
   }
   setTimeout(step, 100);
 }
-
-// ── Merge calfire into CSV data ───────────────────────────────
 
 function _mergeCalfire(csvData, geoData) {
   geoData.byCounty.forEach((gs, key) => {
@@ -155,14 +127,7 @@ function _mergeCalfire(csvData, geoData) {
 // ── Safe load ─────────────────────────────────────────────────
 
 async function tryLoad(fn, path) {
-  try {
-    const r = await fn(path);
-    console.log('loaded: ' + path);
-    return r;
-  } catch (e) {
-    console.warn('failed: ' + path + ' (' + e.message + ')');
-    return null;
-  }
+  try { return await fn(path); } catch { return null; }
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────
@@ -175,8 +140,6 @@ async function main() {
   });
   container.appendChild(loadingEl);
 
-  console.log('fetching data files…');
-
   try {
     const [counties, geoFire, csvFire] = await Promise.all([
       tryLoad(d3.json, 'data/ca-counties.geojson'),
@@ -184,15 +147,11 @@ async function main() {
       tryLoad(d3.csv,  'data/fires.csv'),
     ]);
 
-    if (!counties) throw new Error('ca-counties.geojson missing from data/');
-
-    console.log('counties: ' + (counties.features?.length || 0) + ' features');
+    if (!counties) throw new Error('ca-counties.geojson not found in data/');
 
     let fireData, geoData = null;
 
-    if (geoFire?.features?.length) {
-      geoData = processGeoData(geoFire);
-    }
+    if (geoFire?.features?.length) geoData = processGeoData(geoFire);
 
     if (csvFire?.length) {
       fireData = processCsvData(csvFire, counties);
@@ -201,12 +160,9 @@ async function main() {
       fireData = geoData;
     } else {
       fireData = { byMonth: new Map(), byCounty: new Map(), topFires: [], isFRP: false };
-      console.log('no fire data — map only');
     }
 
-    // Remove loading BEFORE any slow operations
     loadingEl.remove();
-    console.log('init modules…');
 
     Layers.initButtons();
     Slider.init();
@@ -217,21 +173,18 @@ async function main() {
     Slider.onChange(date  => MapViz.setDate(date));
     Layers.onChange(layer => MapViz.setLayer(layer));
 
+    // setDate and setLayer first, then loadHotspots so _date is already set
     MapViz.setDate(Slider.getCurrentDate());
     MapViz.setLayer(Layers.getLayer());
 
-    // Load hotspots AFTER setDate so _date is already set when dots render
     if (csvFire?.length) MapViz.loadHotspots(csvFire);
-
-    console.log('ready!');
 
     if (_spatialJob) _runSpatialJoin();
 
   } catch (err) {
-    console.warn('FATAL: ' + err.message);
     loadingEl.innerHTML = `
       <div class="loading-text" style="color:#f66;text-align:center;padding:20px;line-height:2">
-        ⚠ ERROR: ${err.message}
+        ⚠ ${err.message}
       </div>`;
   }
 }

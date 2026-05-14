@@ -10,11 +10,8 @@ const MapViz = (() => {
   let _drawId  = 0;
 
   let _canvas, _ctx, _svg, _tooltip, _countyG, _dotG, _path;
-
-  // All hotspot rows from fires.csv, pre-parsed
   let _allRows = [];
 
-  // Color scale: brightness temperature (K) → fire color
   const _colorScale = d3.scaleSequential()
     .domain([300, 420])
     .interpolator(d3.interpolateYlOrRd);
@@ -34,15 +31,13 @@ const MapViz = (() => {
     const kx = _W / (E - W);
     const ky = _H / (N - S);
 
-    const proj = d3.geoTransform({
+    _path = d3.geoPath(d3.geoTransform({
       point(lon, lat) {
         this.stream.point((lon - W) * kx, (N - lat) * ky);
       }
-    });
-    _path = d3.geoPath(proj);
+    }));
   }
 
-  // Convert lon/lat directly to canvas px (same math as projection)
   function _px(lon) { return (lon - W) / (E - W) * _W; }
   function _py(lat) { return (N - lat) / (N - S) * _H; }
 
@@ -71,13 +66,12 @@ const MapViz = (() => {
     return p;
   }
 
-  // ── Draw satellite imagery ──────────────────────────────────
+  // ── Draw ───────────────────────────────────────────────────
 
   function _draw() {
     if (!_date || !_layer) return;
     const id = ++_drawId;
 
-    // Always load TrueColor basemap; fire layer only if not TrueColor
     const baseUrl = _url('MODIS_Terra_CorrectedReflectance_TrueColor', _date);
     const fireUrl = _layer !== 'MODIS_Terra_CorrectedReflectance_TrueColor'
       ? _url(_layer, _date) : null;
@@ -97,35 +91,23 @@ const MapViz = (() => {
         }
       });
 
-    // Update hotspot dots for this date
     _drawDots(_date);
   }
 
-  // ── SVG hotspot dots ────────────────────────────────────────
-  // Draws circles from fires.csv for the current date.
-  // Size = FRP (fire radiative power), color = brightness temp.
-  // The WMS layer toggle controls whether the satellite overlay
-  // shows (canvas), but dots always show when fire layer is active.
+  // ── Dots ───────────────────────────────────────────────────
 
   function _drawDots(date) {
     if (!_dotG || !date) return;
 
-    // Hide dots when TrueColor only
     if (_layer === 'MODIS_Terra_CorrectedReflectance_TrueColor') {
       _dotG.selectAll('circle').remove();
       return;
     }
 
     const isNight = _layer === 'MODIS_Terra_Thermal_Anomalies_Night';
-
-    // Filter by date and day/night; fall back to all detections if none match
-    let rows = _allRows.filter(r => {
-      if (r.date !== date) return false;
-      return isNight ? r.daynight === 'N' : r.daynight === 'D';
-    });
-
-    // Fallback: if no rows for this exact date, show nothing (no data that day)
-    // This is correct — MODIS doesn't detect fires every day everywhere
+    const rows = _allRows.filter(r =>
+      r.date === date && (isNight ? r.daynight === 'N' : r.daynight === 'D')
+    );
 
     if (!rows.length) {
       _dotG.selectAll('circle').remove();
@@ -159,10 +141,8 @@ const MapViz = (() => {
   // ── Counties ───────────────────────────────────────────────
 
   function loadCounties(geojson) {
-    _svg.selectAll('g.county-layer').remove();
-    _svg.selectAll('g.dot-layer').remove();
+    _svg.selectAll('g').remove();
 
-    // County layer first (below dots)
     _countyG = _svg.append('g').attr('class', 'county-layer');
 
     _countyG.append('path')
@@ -201,13 +181,11 @@ const MapViz = (() => {
       document.getElementById('county-stats').style.display = 'none';
     });
 
-    // Dot layer on top of counties (but pointer-events:none so counties still clickable)
+    // Dot layer sits above counties
     _dotG = _svg.append('g').attr('class', 'dot-layer');
   }
 
-  // ── Load hotspot data ──────────────────────────────────────
-  // Called from main.js after fires.csv is loaded.
-  // Pre-parses rows so _drawDots() is fast.
+  // ── Hotspots ───────────────────────────────────────────────
 
   function loadHotspots(rows) {
     _allRows = rows.map((r, i) => ({
@@ -220,15 +198,7 @@ const MapViz = (() => {
       daynight:   (r.daynight || r.DAYNIGHT || 'D').trim().toUpperCase(),
     })).filter(r => !isNaN(r.lat) && !isNaN(r.lon) && r.date);
 
-    // Log a sample so we can verify field parsing
-    if (_allRows.length > 0) {
-      const s = _allRows[0];
-      console.log(`[hotspots] ${_allRows.length} rows. Sample: date=${s.date} daynight=${s.daynight} frp=${s.frp} brightness=${s.brightness}`);
-    } else {
-      console.warn('[hotspots] 0 valid rows after parsing');
-    }
-
-    // Only draw if _date is already set (setDate was called before loadHotspots)
+    // _date is already set by this point (loadHotspots called after setDate)
     if (_date) _drawDots(_date);
   }
 
@@ -272,7 +242,7 @@ const MapViz = (() => {
         _countyG.selectAll('.county-path').attr('d', _path);
         _countyG.select('.state-outline').attr('d', _path);
       }
-      if (_dotG && _date) _drawDots(_date);
+      if (_date) _drawDots(_date);
       _draw();
     });
   }

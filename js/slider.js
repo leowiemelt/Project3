@@ -1,5 +1,4 @@
 const Slider = (() => {
-  // ── 2020 only — matches fires.csv coverage ──────────────────
   const START = '2020-01-01';
   const END   = '2020-12-31';
 
@@ -29,8 +28,7 @@ const Slider = (() => {
     _idx = Math.max(0, Math.min(i, _dates.length - 1));
     _sliderEl.value = _idx;
     _dateDisplay.textContent = _fmt(_dates[_idx]);
-    // Highlight bar for this month
-    const mo = _dates[_idx].slice(0, 7); // "2020-08"
+    const mo = _dates[_idx].slice(0, 7);
     document.querySelectorAll('.bar').forEach(b =>
       b.classList.toggle('active-year', b.dataset.month === mo));
     _listeners.forEach(fn => fn(_dates[_idx]));
@@ -56,7 +54,6 @@ const Slider = (() => {
   function onChange(fn)     { _listeners.push(fn); }
   function getCurrentDate() { return _dates[_idx]; }
 
-  // jumpToYear not needed for 2020-only but kept for sidebar compatibility
   function jumpToYear(year) {
     const i = _dates.findIndex(d => d.startsWith(String(year)));
     if (i !== -1) _setIdx(i);
@@ -73,7 +70,6 @@ const Slider = (() => {
     _sliderEl.min = 0;
     _sliderEl.max = _dates.length - 1;
 
-    // Default to Aug 15 — peak season
     const def = _dates.findIndex(d => d === '2020-08-15');
     _setIdx(def !== -1 ? def : 226);
 
@@ -87,7 +83,6 @@ const Slider = (() => {
       if (_playing) { _stop(); _start(); }
     });
 
-    // Month tick labels
     ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
       .forEach(m => {
         const s = document.createElement('span');

@@ -1,6 +1,5 @@
 const Sidebar = (() => {
-  let _fd = null; 
-
+  let _fd = null;
 
   function _renderBarChart() {
     const svgEl = document.getElementById('bar-chart');
@@ -15,28 +14,24 @@ const Sidebar = (() => {
       .attr('width', W).attr('height', H);
     svg.selectAll('*').remove();
 
-    const keys  = Array.from(_fd.byMonth.keys()).sort();
+    const keys = Array.from(_fd.byMonth.keys()).sort();
     if (!keys.length) return;
-    const vals  = keys.map(k => _fd.byMonth.get(k) || 0);
+    const vals = keys.map(k => _fd.byMonth.get(k) || 0);
 
     const xSc = d3.scaleBand().domain(keys).range([0, iW]).padding(0.15);
     const ySc = d3.scaleLinear().domain([0, d3.max(vals)]).nice().range([iH, 0]);
 
     const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
-    const monthAbbr = { '01':'J','02':'F','03':'M','04':'A','05':'M','06':'J',
-                        '07':'J','08':'A','09':'S','10':'O','11':'N','12':'D' };
+    const monthAbbr = {'01':'J','02':'F','03':'M','04':'A','05':'M','06':'J',
+                       '07':'J','08':'A','09':'S','10':'O','11':'N','12':'D'};
     g.append('g').attr('class','axis')
       .attr('transform', `translate(0,${iH})`)
-      .call(d3.axisBottom(xSc)
-        .tickFormat(k => monthAbbr[k.slice(5)] || k)
-        .tickSize(3))
+      .call(d3.axisBottom(xSc).tickFormat(k => monthAbbr[k.slice(5)] || k).tickSize(3))
       .call(ax => ax.select('.domain').remove());
 
-    // Y axis
     const fmt = v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M`
-                   : v >= 1e3 ? `${(v/1e3).toFixed(0)}K`
-                   : Math.round(v);
+                   : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : Math.round(v);
 
     g.append('g').attr('class','axis')
       .call(d3.axisLeft(ySc).ticks(4).tickFormat(fmt).tickSize(-iW))
@@ -45,7 +40,6 @@ const Sidebar = (() => {
         ax.selectAll('.tick line').attr('stroke','#242424');
       });
 
-    // Bars
     g.selectAll('.bar').data(keys).join('rect')
       .attr('class','bar')
       .attr('data-month', d => d)
@@ -53,11 +47,7 @@ const Sidebar = (() => {
       .attr('y', d => ySc(_fd.byMonth.get(d) || 0))
       .attr('width', xSc.bandwidth())
       .attr('height', d => iH - ySc(_fd.byMonth.get(d) || 0))
-      .on('click', (_, k) => {
-        // jump slider to first day of that month
-        const date = k + '-01';
-        Slider.jumpToYear(date.slice(0,4));
-      })
+      .on('click', (_, k) => Slider.jumpToYear(k.slice(0, 4)))
       .on('mouseover', function(ev, k) {
         const v = _fd.byMonth.get(k) || 0;
         const label = _fd.isFRP
@@ -79,15 +69,12 @@ const Sidebar = (() => {
   }
   function _hideTip() { document.getElementById('map-tooltip')?.classList.add('hidden'); }
 
-  // ── Top fires list ─────────────────────────────────────────
-
   function _renderTopFires() {
     const list = document.getElementById('top-fires-list');
     list.innerHTML = '';
     const fires = _fd.topFires || [];
     if (!fires.length) {
-      list.innerHTML =
-        '<li style="color:#555;font-family:var(--font-mono);font-size:.62rem;padding:8px 0;list-style:none">No named records in loaded dataset</li>';
+      list.innerHTML = '<li style="color:#555;font-family:var(--mono);font-size:.62rem;padding:8px 0;list-style:none">No named records in dataset</li>';
       return;
     }
     fires.slice(0, 8).forEach(f => {
@@ -100,48 +87,41 @@ const Sidebar = (() => {
     });
   }
 
-
   function selectCounty(countyName) {
     document.getElementById('county-name').textContent = countyName;
-
     const key = countyName.toLowerCase().replace(/\s*county\s*$/i,'').trim();
     const stats = _fd.byCounty.get(key);
-
     const el = document.getElementById('county-stats');
     if (!stats) { el.style.display = 'none'; return; }
     el.style.display = 'block';
 
     if (_fd.isFRP) {
-      document.getElementById('lbl-fires').textContent  = 'Hotspot detections';
-      document.getElementById('lbl-acres').textContent  = 'Total FRP (MW)';
+      document.getElementById('lbl-fires').textContent   = 'Hotspot detections';
+      document.getElementById('lbl-acres').textContent   = 'Total FRP (MW)';
       document.getElementById('lbl-largest').textContent = 'Largest named fire';
-      document.getElementById('lbl-worst').textContent  = 'Year';
-      document.getElementById('stat-fires').textContent = d3.format(',')(stats.hotspots);
-      document.getElementById('stat-acres').textContent = d3.format(',.0f')(stats.totalFRP);
+      document.getElementById('lbl-worst').textContent   = 'Year';
+      document.getElementById('stat-fires').textContent  = d3.format(',')(stats.hotspots);
+      document.getElementById('stat-acres').textContent  = d3.format(',.0f')(stats.totalFRP);
       document.getElementById('stat-largest').textContent = stats.largest || '—';
       document.getElementById('stat-worst-year').textContent = '2020';
     } else {
-      document.getElementById('lbl-fires').textContent  = 'Fires on record';
-      document.getElementById('lbl-acres').textContent  = 'Total acres burned';
+      document.getElementById('lbl-fires').textContent   = 'Fires on record';
+      document.getElementById('lbl-acres').textContent   = 'Total acres burned';
       document.getElementById('lbl-largest').textContent = 'Largest fire';
-      document.getElementById('lbl-worst').textContent  = 'Worst year';
-      document.getElementById('stat-fires').textContent = d3.format(',')(stats.fires);
-      document.getElementById('stat-acres').textContent = d3.format(',.0f')(stats.acres) + ' ac';
+      document.getElementById('lbl-worst').textContent   = 'Worst year';
+      document.getElementById('stat-fires').textContent  = d3.format(',')(stats.fires);
+      document.getElementById('stat-acres').textContent  = d3.format(',.0f')(stats.acres) + ' ac';
       document.getElementById('stat-largest').textContent = stats.largest || '—';
       document.getElementById('stat-worst-year').textContent = stats.worstYear || '—';
     }
   }
 
-
   function init(fireData) {
     _fd = fireData;
-
-    // Update chart label
     const lbl = document.getElementById('chart-label');
     if (lbl) lbl.textContent = _fd.isFRP
       ? 'MONTHLY FIRE RADIATIVE POWER — 2020 (MW)'
       : 'ACRES BURNED BY YEAR';
-
     _renderBarChart();
     _renderTopFires();
   }

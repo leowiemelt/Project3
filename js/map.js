@@ -1,183 +1,254 @@
-const MapViz = (() => {
+function _countyKey(raw) {
+  return (raw || '').toLowerCase().replace(/\s*county\s*$/i, '').trim();
+}
 
-  // California bounding box — same values used in WMS BBOX param
-  const W = -124.48, S = 32.53, E = -114.13, N = 42.01;
+const F_YEAR   = ['YEAR_','YEAR','FIRE_YEAR','year'];
+const F_ACRES  = ['GIS_ACRES','AcresBurned','ACRES','acres'];
+const F_NAME   = ['FIRE_NAME','FIRENAME','name','Name','FIRE_NAM'];
+const F_COUNTY = ['COUNTY','County','county','COUNTY_NAME'];
 
-  const WMS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+function _pick(p, keys) {
+  for (const k of keys) {
+    const v = p[k];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return null;
+}
 
-  let _date    = null;
-  let _layer   = 'MODIS_Terra_Thermal_Anomalies_Day';
-  let _opacity = 0.85;
-  let _W = 0, _H = 0;
-  let _drawId  = 0;  // cancel stale async draws
+// ── Process calfire.geojson ───────────────────────────────────
 
-  let _canvas, _ctx, _svg, _tooltip, _countyG, _path;
+function processGeoData(geojson) {
+  const byMonth  = new Map();
+  const byCounty = new Map();
+  const all      = [];
 
-  const _cache = new Map(); // url → Promise<HTMLImageElement|null>
-
-
-  function _buildProj() {
-    const el = document.getElementById('map-container');
-    _W = el.clientWidth  || 800;
-    _H = el.clientHeight || 520;
-    _canvas.width  = _W;
-    _canvas.height = _H;
-    _svg.attr('width', _W).attr('height', _H);
-
-    const kx = _W / (E - W); // px per degree longitude
-    const ky = _H / (N - S); // px per degree latitude
-
-    const proj = d3.geoTransform({
-      point(lon, lat) {
-        this.stream.point(
-          (lon - W) * kx,
-          (N - lat) * ky
-        );
-      }
-    });
-    _path = d3.geoPath(proj);
+  console.log('[calfire] feature count:', geojson.features.length);
+  if (geojson.features.length > 0) {
+    console.log('[calfire] sample properties:', geojson.features[0].properties);
   }
 
-  // ── WMS URL ────────────────────────────────────────────────
+  geojson.features.forEach(f => {
+    const p    = f.properties || {};
+    const rawY = _pick(p, F_YEAR);
+    const rawA = _pick(p, F_ACRES);
+    const rawN = _pick(p, F_NAME);
+    const rawC = _pick(p, F_COUNTY);
 
-  function _url(layer, date) {
-    const fmt = layer === 'MODIS_Terra_CorrectedReflectance_TrueColor'
-      ? 'image/jpeg' : 'image/png';
-    return `${WMS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
-      `&LAYERS=${encodeURIComponent(layer)}&SRS=EPSG:4326` +
-      `&BBOX=${W},${S},${E},${N}&WIDTH=800&HEIGHT=800` +
-      `&FORMAT=${encodeURIComponent(fmt)}&TIME=${date}` +
-      `&TRANSPARENT=true&STYLES=`;
-  }
+    const year  = rawY ? String(rawY).slice(0,4) : null;
+    const acres = parseFloat(rawA) || 0;
+    const name  = rawN || 'Unknown';
+    const ckey  = rawC ? _countyKey(rawC) : null;
 
-  // ── Image cache ────────────────────────────────────────────
+    if (!year || +year < 1980 || +year > 2024 || acres <= 0) return;
 
-  function _load(url) {
-    if (_cache.has(url)) return _cache.get(url);
-    const p = new Promise(resolve => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload  = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
-    _cache.set(url, p);
-    return p;
-  }
+    const moKey = year + '-01';
+    byMonth.set(moKey, (byMonth.get(moKey) || 0) + acres);
 
-  // ── Draw ───────────────────────────────────────────────────
-
-  function _draw() {
-    if (!_date || !_layer) return;
-    const id = ++_drawId;
-
-    const baseUrl = _url('MODIS_Terra_CorrectedReflectance_TrueColor', _date);
-    const fireUrl = _layer !== 'MODIS_Terra_CorrectedReflectance_TrueColor'
-      ? _url(_layer, _date) : null;
-
-    Promise.all([_load(baseUrl), fireUrl ? _load(fireUrl) : Promise.resolve(null)])
-      .then(([baseImg, fireImg]) => {
-        if (id !== _drawId) return; // superseded
-        _ctx.clearRect(0, 0, _W, _H);
-        if (baseImg) {
-          _ctx.globalAlpha = 1.0;
-          _ctx.drawImage(baseImg, 0, 0, _W, _H);
-        }
-        if (fireImg) {
-          _ctx.globalAlpha = _opacity;
-          _ctx.drawImage(fireImg, 0, 0, _W, _H);
-          _ctx.globalAlpha = 1.0;
-        }
-      });
-  }
-
-  // ── Counties ───────────────────────────────────────────────
-
-  function loadCounties(geojson) {
-    _svg.selectAll('g.county-layer').remove();
-    _countyG = _svg.append('g').attr('class', 'county-layer');
-
-    _countyG.append('path')
-      .datum({ type: 'FeatureCollection', features: geojson.features })
-      .attr('class', 'state-outline')
-      .attr('d', _path);
-
-    _countyG.selectAll('.county-path')
-      .data(geojson.features)
-      .join('path')
-        .attr('class', 'county-path')
-        .attr('d', _path)
-        .on('mouseover', function(ev, d) {
-          const name = d.properties.name || d.properties.NAME || '';
-          document.getElementById('county-hover-label').textContent = name;
-          _showTip(ev, `<div class="tooltip-title">${name} County</div>Click for stats`);
-        })
-        .on('mousemove', function(ev, d) {
-          const name = d.properties.name || d.properties.NAME || '';
-          _showTip(ev, `<div class="tooltip-title">${name} County</div>Click for stats`);
-        })
-        .on('mouseout', () => {
-          document.getElementById('county-hover-label').textContent = '—';
-          _hideTip();
-        })
-        .on('click', function(ev, d) {
-          ev.stopPropagation();
-          _countyG.selectAll('.county-path').classed('selected', false);
-          d3.select(this).classed('selected', true);
-          Sidebar.selectCounty(d.properties.name || d.properties.NAME || '');
+    if (ckey) {
+      if (!byCounty.has(ckey)) {
+        byCounty.set(ckey, {
+          fires:0, acres:0, largest:'—', largestAcres:0,
+          worstYear:year, worstAcres:0,
         });
-
-    // Deselect on background click
-    _svg.on('click', () => {
-      _countyG.selectAll('.county-path').classed('selected', false);
-      document.getElementById('county-name').textContent = 'Click a county';
-      document.getElementById('county-stats').style.display = 'none';
-    });
-  }
-
-  // ── Tooltip ────────────────────────────────────────────────
-
-  function _showTip(ev, html) {
-    _tooltip.innerHTML = html;
-    _tooltip.classList.remove('hidden');
-    const r = _canvas.getBoundingClientRect();
-    let tx = ev.clientX - r.left + 12;
-    let ty = ev.clientY - r.top  - 8;
-    if (tx + 200 > _W) tx -= 212;
-    if (ty < 0) ty = 4;
-    _tooltip.style.left = `${tx}px`;
-    _tooltip.style.top  = `${ty}px`;
-  }
-
-  function _hideTip() { _tooltip.classList.add('hidden'); }
-
-  // ── Public API ─────────────────────────────────────────────
-
-  function setDate(date)   { _date    = date;          _draw(); }
-  function setLayer(layer) { _layer   = layer;         _draw(); }
-  function setOpacity(v)   { _opacity = parseFloat(v); _draw(); }
-
-  function init() {
-    _canvas  = document.getElementById('tile-canvas');
-    _ctx     = _canvas.getContext('2d');
-    _svg     = d3.select('#map-svg');
-    _tooltip = document.getElementById('map-tooltip');
-
-    _buildProj();
-    _layer = Layers.getLayer();
-
-    document.getElementById('opacity-slider')
-      ?.addEventListener('input', e => setOpacity(e.target.value));
-
-    window.addEventListener('resize', () => {
-      _buildProj();
-      if (_countyG) {
-        _countyG.selectAll('.county-path').attr('d', _path);
-        _countyG.select('.state-outline').attr('d', _path);
       }
-      _draw();
-    });
+      const c = byCounty.get(ckey);
+      c.fires++;
+      c.acres += acres;
+      if (acres > c.largestAcres) {
+        c.largestAcres = acres;
+        c.largest = `${name} (${d3.format(',.0f')(acres)} ac)`;
+      }
+      if (acres > c.worstAcres) { c.worstAcres = acres; c.worstYear = year; }
+    }
+    all.push({ name, acres, year });
+  });
+
+  console.log(`[calfire] processed: ${all.length} fires, ${byMonth.size} year-months, ${byCounty.size} counties`);
+  if (byCounty.size > 0) {
+    console.log('[calfire] sample county keys:', [...byCounty.keys()].slice(0,6));
   }
 
-  return { init, setDate, setLayer, setOpacity, loadCounties };
-})();
+  const topFires = [...all].sort((a,b)=>b.acres-a.acres).slice(0,8);
+  return { byMonth, byCounty, topFires, isFRP: false };
+}
+
+// ── Process fires.csv ─────────────────────────────────────────
+// Only computes monthly totals synchronously.
+// County spatial join runs deferred (non-blocking) after render.
+
+let _spatialJob = null; // holds { rows, countiesGeo, byCounty } for deferred join
+
+function processCsvData(rows, countiesGeo) {
+  const byMonth  = new Map();
+  const byCounty = new Map(); // filled in by _runSpatialJoin later
+
+  console.log(`[fires.csv] ${rows.length} rows. Column names:`, Object.keys(rows[0] || {}));
+
+  rows.forEach(r => {
+    const date = r.acq_date || r.ACQ_DATE || '';
+    const mo   = date.slice(0, 7);
+    if (mo.length < 7) return;
+    const frp = parseFloat(r.frp || r.FRP || 0) || 1;
+    byMonth.set(mo, (byMonth.get(mo) || 0) + frp);
+  });
+
+  console.log('[fires.csv] months found:', [...byMonth.keys()].sort());
+
+  // Store job for after render
+  _spatialJob = { rows, countiesGeo, byCounty };
+
+  return { byMonth, byCounty, topFires: [], isFRP: true };
+}
+
+// ── Deferred spatial join ─────────────────────────────────────
+// Runs in 200-row batches so it doesn't freeze the page.
+
+function _runSpatialJoin() {
+  if (!_spatialJob) return;
+  const { rows, countiesGeo, byCounty } = _spatialJob;
+  _spatialJob = null;
+
+  const features = countiesGeo.features.map(f => ({
+    feature: f,
+    key: _countyKey(f.properties.name || f.properties.NAME || ''),
+  }));
+
+  const BATCH = 250;
+  let i = 0;
+
+  function step() {
+    const end = Math.min(i + BATCH, rows.length);
+    for (; i < end; i++) {
+      const r   = rows[i];
+      const lon = parseFloat(r.longitude || r.LONGITUDE);
+      const lat = parseFloat(r.latitude  || r.LATITUDE);
+      if (isNaN(lon) || isNaN(lat)) continue;
+
+      for (const { feature, key } of features) {
+        if (d3.geoContains(feature, [lon, lat])) {
+          if (!byCounty.has(key)) {
+            byCounty.set(key, { hotspots:0, totalFRP:0, largest:'—' });
+          }
+          const c = byCounty.get(key);
+          c.hotspots++;
+          c.totalFRP += (parseFloat(r.frp || r.FRP || 0) || 1);
+          break;
+        }
+      }
+    }
+
+    if (i < rows.length) {
+      setTimeout(step, 0);
+    } else {
+      console.log(`[spatial join] complete — ${byCounty.size} counties matched`);
+    }
+  }
+
+  setTimeout(step, 100); // start after first paint
+}
+
+// ── Merge calfire stats into CSV data ─────────────────────────
+
+function _mergeCalfire(csvData, geoData) {
+  geoData.byCounty.forEach((gs, key) => {
+    const c = csvData.byCounty.get(key);
+    if (c) { c.largest = gs.largest; c.worstYear = gs.worstYear; }
+  });
+  csvData.topFires = geoData.topFires;
+}
+
+// ── Safe load ─────────────────────────────────────────────────
+
+async function tryLoad(fn, path) {
+  try {
+    const result = await fn(path);
+    console.log(`[load] ✓ ${path}`);
+    return result;
+  } catch (e) {
+    console.warn(`[load] ✗ ${path}:`, e.message);
+    return null;
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────
+
+async function main() {
+  const container = document.getElementById('map-container');
+  const loadingEl = Object.assign(document.createElement('div'), {
+    className: 'loading-overlay',
+    innerHTML: '<div class="loading-text">LOADING DATA…</div>',
+  });
+  container.appendChild(loadingEl);
+
+  try {
+    console.log('[main] fetching data files…');
+
+    const [counties, geoFire, csvFire] = await Promise.all([
+      tryLoad(d3.json, 'data/ca-counties.geojson'),
+      tryLoad(d3.json, 'data/calfire.geojson'),
+      tryLoad(d3.csv,  'data/fires.csv'),
+    ]);
+
+    if (!counties) {
+      throw new Error('ca-counties.geojson failed to load — check it exists in data/');
+    }
+
+    console.log('[main] counties loaded:', counties.features?.length, 'features');
+
+    // Pick best data source
+    let fireData;
+    let geoData = null;
+
+    if (geoFire?.features?.length) {
+      geoData = processGeoData(geoFire);
+    }
+
+    if (csvFire?.length) {
+      fireData = processCsvData(csvFire, counties);
+      if (geoData) _mergeCalfire(fireData, geoData);
+      console.log('[main] using fires.csv' + (geoData ? ' + calfire merged' : ''));
+    } else if (geoData) {
+      fireData = geoData;
+      console.log('[main] using calfire.geojson only');
+    } else {
+      fireData = { byMonth: new Map(), byCounty: new Map(), topFires: [], isFRP: false };
+      console.warn('[main] no fire data found — map will show satellite imagery only');
+    }
+
+    // Remove loading indicator NOW — before anything slow
+    loadingEl.remove();
+    console.log('[main] initializing modules…');
+
+    Layers.initButtons();
+    Slider.init();
+    MapViz.init();
+    Sidebar.init(fireData);
+    MapViz.loadCounties(counties);
+
+    Slider.onChange(date  => MapViz.setDate(date));
+    Layers.onChange(layer => MapViz.setLayer(layer));
+
+    MapViz.setDate(Slider.getCurrentDate());
+    MapViz.setLayer(Layers.getLayer());
+
+    console.log('[main] ready.');
+
+    // Start spatial join in background (non-blocking)
+    if (_spatialJob) _runSpatialJoin();
+
+  } catch (err) {
+    console.error('[main] fatal error:', err);
+    loadingEl.innerHTML = `
+      <div class="loading-text" style="color:#f66;text-align:center;padding:20px;line-height:2">
+        ⚠ LOAD ERROR<br>
+        <span style="font-size:.58rem;color:#999;display:block;margin-top:8px">
+          ${err.message}<br><br>
+          Required: <code>data/ca-counties.geojson</code><br>
+          Optional: <code>data/fires.csv</code> · <code>data/calfire.geojson</code><br>
+          Open DevTools → Console for details.
+        </span>
+      </div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', main);

@@ -112,7 +112,7 @@
 
       <h2>Design Rationale</h2>
       <p>
-        California's wildfire crisis has intensified dramatically over the past two decades,
+        California's wildfire crisis has intensified dramatically over the years,
         driven by drought, rising temperatures, and real estate development in
         fire-prone landscapes. This visualization provides interactive exploration of how
         fire activity evolved across the state in 2020, using the MODIS Terra satellite (via the GIBS WMTS API).
@@ -130,13 +130,13 @@
         <strong>Two-layer compositing:</strong> The fire detection layers (Active Fires Day
         and Night) are served by GIBS as PNG tiles with a transparent background — only
         fire hotspot pixels carry color. When either is selected, the map renders the MODIS
-        TrueColor basemap first (JPEG, full opacity), then composites the thermal anomaly
-        PNG on top, making hotspots visible over real satellite imagery. The opacity slider
-        controls how strongly the fire layer appears relative to the basemap. When TrueColor
+        TrueColor basemap first, then composites the thermal anomaly PNG on top, making 
+        hotspots visible over real satellite imagery. The opacity slider controls how 
+        strongly the fire layer appears relative to the basemap. When TrueColor
         alone is selected, only one tile pass is needed.
       </p>
       <p>
-        <strong>Time slider with playback:</strong> Temporal change is the central story here.
+        <strong>Time slider with playback:</strong> Temporal change is the central part of the dynamic visualization.
         A static map can show the overall pattern of fire-prone regions but cannot reveal
         <em>when</em> fires occur or <em>how rapidly</em> conditions escalate season by season.
         The slider steps through monthly dates from 2020, updating the GIBS tile
@@ -146,7 +146,7 @@
       </p>
       <p>
         <strong>County click + sidebar statistics:</strong> Satellite imagery is powerful for
-        conveying spatial extent and atmospheric context (smoke plumes, burn scars), but it
+        conveying spatial extent and atmospheric context, but it
         does not convey magnitude. Pairing the map with a statewide bar chart and county-level
         statistics grounds the visual impressions in concrete numbers. Clicking a county
         surfaces its total fire count, total acres burned, largest single fire, and worst
@@ -155,8 +155,8 @@
       </p>
       <p>
         <strong>Visual design choices:</strong> A dark background maximizes the perceived
-        brightness and contrast of the MODIS satellite imagery. Amber/orange accents
-        (chosen to match fire color) are used consistently across interactive elements —
+        brightness and contrast of the MODIS satellite imagery. Orange accents
+        are used consistently across interactive elements —
         active buttons, selected counties, bar chart highlights, and the date display —
         creating a coherent visual language. Bebas Neue (display) and Space Mono (data labels)
         give the interface a scientific monitoring instrument character without sacrificing

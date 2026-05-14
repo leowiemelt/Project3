@@ -123,68 +123,78 @@
     </div>
   </section>
 
-  <!-- ═══ WRITEUP ═══════════════════════════════════════════════ -->
   <section class="writeup">
     <div class="writeup-inner">
 
-      <h2>About This Visualization</h2>
-
-      <h3>Motivation</h3>
+      <h2>Design Rationale</h2>
       <p>
         California's wildfire crisis has intensified dramatically over the past two decades,
-        driven by prolonged drought, rising temperatures, and expanded development in
-        fire-prone landscapes. This visualization enables interactive exploration of how
-        fire activity has evolved spatially and temporally across the state, using two
-        complementary data sources: NASA's MODIS Terra satellite (via the GIBS WMTS API)
-        and historical fire perimeter records from CAL FIRE's Fire and Resource Assessment
-        Program (FRAP).
+        driven by drought, rising temperatures, and real estate development in
+        fire-prone landscapes. This visualization provides interactive exploration of how
+        fire activity evolved across the state in 2020, using the MODIS Terra satellite (via the GIBS WMTS API).
       </p>
-
-      <h3>Design Rationale</h3>
       <p>
         <strong>Satellite tile overlay:</strong> Rather than abstracting fire locations into
-        dots on a blank basemap, we fetch actual MODIS satellite imagery tiles from the NASA
-        GIBS REST API (WMTS, EPSG:4326) and draw them onto an HTML canvas element using D3's
-        geoEquirectangular projection. This lets viewers see smoke plumes, burn scars, and
-        active fire fronts in their real geographic context. A D3 SVG layer sits on top for
-        county boundaries and interaction targets.
+        dots on a blank basemap, we fetch actual MODIS satellite imagery tiles directly
+        from the NASA GIBS REST API (WMTS, EPSG:4326 projection) and draw them onto an HTML
+        canvas element. D3's <code>geoEquirectangular</code> projection is used throughout —
+        this matches the plate carrée coordinate system that GIBS tiles use internally,
+        ensuring tiles align correctly with the SVG county overlay without any reprojection.
+        A D3 SVG layer sits on top of the canvas for county boundaries and interaction targets.
       </p>
       <p>
-        <strong>Two-layer compositing:</strong> When a fire detection layer is selected,
-        the map renders the TrueColor basemap first (JPEG, opaque), then composites the
-        thermal anomaly layer on top (PNG with transparent background) — so only fire
-        hotspot pixels are visible over the satellite imagery. The opacity slider controls
-        how strongly the fire layer appears.
+        <strong>Two-layer compositing:</strong> The fire detection layers (Active Fires Day
+        and Night) are served by GIBS as PNG tiles with a transparent background — only
+        fire hotspot pixels carry color. When either is selected, the map renders the MODIS
+        TrueColor basemap first (JPEG, full opacity), then composites the thermal anomaly
+        PNG on top, making hotspots visible over real satellite imagery. The opacity slider
+        controls how strongly the fire layer appears relative to the basemap. When TrueColor
+        alone is selected, only one tile pass is needed.
       </p>
       <p>
-        <strong>Time slider:</strong> Temporal change is the central story. A static map can
-        show accumulated fire history but not <em>when</em> or <em>how rapidly</em> conditions
-        evolve. The slider lets viewers scrub month-by-month across 2000–2024, exposing
-        seasonal patterns (peak activity: July–October) and year-over-year escalation.
-        Animated playback runs the timeline forward automatically.
+        <strong>Time slider with playback:</strong> Temporal change is the central story here.
+        A static map can show the overall pattern of fire-prone regions but cannot reveal
+        <em>when</em> fires occur or <em>how rapidly</em> conditions escalate season by season.
+        The slider steps through monthly dates from 2000 to 2024, updating the GIBS tile
+        request on each change. Animated playback lets the map run forward automatically,
+        making the seasonal pulse of fire activity (peaking July–October each year) immediately
+        visible. Clicking a bar in the year chart jumps the slider directly to that year.
       </p>
       <p>
-        <strong>County click + sidebar:</strong> Satellite imagery conveys location and
-        extent but not magnitude. Pairing the map with a statewide acreage bar chart and
-        county-level statistics grounds visual impressions in concrete numbers and enables
-        regional comparison that would be impossible in a static view.
+        <strong>County click + sidebar statistics:</strong> Satellite imagery is powerful for
+        conveying spatial extent and atmospheric context (smoke plumes, burn scars), but it
+        does not convey magnitude. Pairing the map with a statewide bar chart and county-level
+        statistics grounds the visual impressions in concrete numbers. Clicking a county
+        surfaces its total fire count, total acres burned, largest single fire, and worst
+        year — enabling regional comparisons that would be impossible in any static view.
+        Hovering a county shows its name in the controls bar without requiring a full click.
       </p>
       <p>
-        <strong>Visual design:</strong> A dark background with amber/orange accents reinforces
-        the fire theme while maximizing contrast against the satellite imagery. Bebas Neue
-        display type and Space Mono monospace give the interface a data-instrument character
-        appropriate to a scientific monitoring tool.
+        <strong>Visual design choices:</strong> A dark background maximizes the perceived
+        brightness and contrast of the MODIS satellite imagery. Amber/orange accents
+        (chosen to match fire color) are used consistently across interactive elements —
+        active buttons, selected counties, bar chart highlights, and the date display —
+        creating a coherent visual language. Bebas Neue (display) and Space Mono (data labels)
+        give the interface a scientific monitoring instrument character without sacrificing
+        readability.
       </p>
-
+ 
       <h3>Data Transformations</h3>
       <p>
         The CAL FIRE FRAP fire perimeters dataset was filtered to California fires from
-        2000–2024. Records were aggregated in two ways: by year (total acres burned statewide,
-        for the bar chart) and by county (fire count, total acres, largest single fire name
-        and acreage, worst year by acreage). GIBS WMTS tiles are requested at 1 km resolution
-        for fire detection layers and 250 m for TrueColor, using monthly date steps; the date
-        parameter updates on every slider change. Occasional cloud cover may obscure imagery
-        on individual days — comparing nearby months typically resolves this.
+        2000–2024. Each record's acreage (<code>GIS_ACRES</code>) was summed by year to
+        produce the statewide bar chart, and summed by county to produce the detail card
+        statistics (fire count, total acres, largest single fire by acreage, worst year
+        by total acreage). County matching uses normalized uppercase comparison between the
+        fire dataset's county field and the county GeoJSON's <code>name</code> property.
+      </p>
+      <p>
+        GIBS WMTS tiles are requested at 1 km resolution for fire detection layers
+        (<code>1km</code> TileMatrixSet, max zoom level 6) and 250 m for TrueColor
+        (<code>250m</code> TileMatrixSet, max zoom level 8). The date parameter in each
+        tile URL is updated on every slider step. Monthly date steps are used (the 1st of
+        each month) rather than daily, since individual days can be entirely cloud-obscured;
+        monthly steps balance temporal resolution against imagery availability.
       </p>
     </div>
   </section>

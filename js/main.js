@@ -1,36 +1,6 @@
 /**
- * main.js — with on-page debug log (no DevTools needed)
- *
- * A small log panel appears in the top-right corner showing exactly
- * what loaded and what failed. Remove the _log() calls once working.
+ * main.js
  */
-
-// ── On-page debug log ─────────────────────────────────────────
-
-const _debugEl = (() => {
-  const el = document.createElement('div');
-  el.style.cssText = [
-    'position:fixed', 'top:8px', 'right:8px', 'z-index:9999',
-    'background:rgba(0,0,0,0.88)', 'color:#0f0', 'font:11px monospace',
-    'padding:10px 14px', 'border-radius:4px', 'max-width:340px',
-    'max-height:260px', 'overflow-y:auto', 'line-height:1.6',
-    'border:1px solid #333', 'pointer-events:none',
-  ].join(';');
-  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(el));
-  return el;
-})();
-
-function _log(msg, color) {
-  const line = document.createElement('div');
-  line.style.color = color || '#0f0';
-  line.textContent = msg;
-  _debugEl.appendChild(line);
-  _debugEl.scrollTop = _debugEl.scrollHeight;
-}
-
-function _err(msg) { _log('✗ ' + msg, '#f66'); }
-function _ok(msg)  { _log('✓ ' + msg, '#0f0'); }
-function _info(msg){ _log('· ' + msg, '#aaa'); }
 
 // ── County key normalizer ─────────────────────────────────────
 function _countyKey(raw) {
@@ -59,7 +29,7 @@ function processGeoData(geojson) {
   const all      = [];
 
   const sample = geojson.features[0]?.properties || {};
-  _info('calfire fields: ' + Object.keys(sample).join(', '));
+  console.log('calfire fields: ' + Object.keys(sample).join(', '));
 
   geojson.features.forEach(f => {
     const p    = f.properties || {};
@@ -98,7 +68,7 @@ function processGeoData(geojson) {
   });
 
   _ok(`calfire: ${all.length} fires, ${byCounty.size} counties`);
-  if (byCounty.size === 0) _err('calfire: county field not matched — check field names above');
+  if (byCounty.size === 0) console.warn('calfire: county field not matched — check field names above');
 
   const topFires = [...all].sort((a,b)=>b.acres-a.acres).slice(0,8);
   return { byMonth, byCounty, topFires, isFRP: false };
@@ -113,7 +83,7 @@ function processCsvData(rows, countiesGeo) {
   const byCounty = new Map();
 
   const cols = Object.keys(rows[0] || {});
-  _info('fires.csv cols: ' + cols.join(', '));
+  console.log('fires.csv cols: ' + cols.join(', '));
 
   rows.forEach(r => {
     const date = r.acq_date || r.ACQ_DATE || '';
@@ -124,7 +94,7 @@ function processCsvData(rows, countiesGeo) {
   });
 
   _ok(`fires.csv: ${rows.length} rows, ${byMonth.size} months`);
-  _info('months: ' + [...byMonth.keys()].sort().join(', '));
+  console.log('months: ' + [...byMonth.keys()].sort().join(', '));
 
   _spatialJob = { rows, countiesGeo, byCounty };
   return { byMonth, byCounty, topFires: [], isFRP: true };
@@ -136,7 +106,7 @@ function _runSpatialJoin() {
   if (!_spatialJob) return;
   const { rows, countiesGeo, byCounty } = _spatialJob;
   _spatialJob = null;
-  _info('spatial join starting…');
+  console.log('spatial join starting…');
 
   const features = countiesGeo.features.map(f => ({
     feature: f,
@@ -187,10 +157,10 @@ function _mergeCalfire(csvData, geoData) {
 async function tryLoad(fn, path) {
   try {
     const r = await fn(path);
-    _ok('loaded: ' + path);
+    console.log('loaded: ' + path);
     return r;
   } catch (e) {
-    _err('failed: ' + path + ' (' + e.message + ')');
+    console.warn('failed: ' + path + ' (' + e.message + ')');
     return null;
   }
 }
@@ -205,7 +175,7 @@ async function main() {
   });
   container.appendChild(loadingEl);
 
-  _info('fetching data files…');
+  console.log('fetching data files…');
 
   try {
     const [counties, geoFire, csvFire] = await Promise.all([
@@ -216,7 +186,7 @@ async function main() {
 
     if (!counties) throw new Error('ca-counties.geojson missing from data/');
 
-    _ok('counties: ' + (counties.features?.length || 0) + ' features');
+    console.log('counties: ' + (counties.features?.length || 0) + ' features');
 
     let fireData, geoData = null;
 
@@ -231,12 +201,12 @@ async function main() {
       fireData = geoData;
     } else {
       fireData = { byMonth: new Map(), byCounty: new Map(), topFires: [], isFRP: false };
-      _info('no fire data — map only');
+      console.log('no fire data — map only');
     }
 
     // Remove loading BEFORE any slow operations
     loadingEl.remove();
-    _info('init modules…');
+    console.log('init modules…');
 
     Layers.initButtons();
     Slider.init();
@@ -244,21 +214,21 @@ async function main() {
     Sidebar.init(fireData);
     MapViz.loadCounties(counties);
 
-    // Pass raw CSV rows to map for SVG dot rendering
-    if (csvFire?.length) MapViz.loadHotspots(csvFire);
-
     Slider.onChange(date  => MapViz.setDate(date));
     Layers.onChange(layer => MapViz.setLayer(layer));
 
     MapViz.setDate(Slider.getCurrentDate());
     MapViz.setLayer(Layers.getLayer());
 
-    _ok('ready!');
+    // Load hotspots AFTER setDate so _date is already set when dots render
+    if (csvFire?.length) MapViz.loadHotspots(csvFire);
+
+    console.log('ready!');
 
     if (_spatialJob) _runSpatialJoin();
 
   } catch (err) {
-    _err('FATAL: ' + err.message);
+    console.warn('FATAL: ' + err.message);
     loadingEl.innerHTML = `
       <div class="loading-text" style="color:#f66;text-align:center;padding:20px;line-height:2">
         ⚠ ERROR: ${err.message}<br>

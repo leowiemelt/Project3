@@ -108,26 +108,32 @@ const MapViz = (() => {
   // shows (canvas), but dots always show when fire layer is active.
 
   function _drawDots(date) {
-    if (!_dotG) return;
+    if (!_dotG || !date) return;
 
-    // Hide dots when TrueColor only (no fire layer selected)
+    // Hide dots when TrueColor only
     if (_layer === 'MODIS_Terra_CorrectedReflectance_TrueColor') {
       _dotG.selectAll('circle').remove();
       return;
     }
 
-    // Filter to this date; for night layer prefer night detections
     const isNight = _layer === 'MODIS_Terra_Thermal_Anomalies_Night';
-    const rows = _allRows.filter(r => {
+
+    // Filter by date and day/night; fall back to all detections if none match
+    let rows = _allRows.filter(r => {
       if (r.date !== date) return false;
-      if (isNight && r.daynight !== 'N') return false;
-      if (!isNight && r.daynight === 'N') return false;
-      return true;
+      return isNight ? r.daynight === 'N' : r.daynight === 'D';
     });
 
-    // FRP scale: radius 3–14px
+    // Fallback: if no rows for this exact date, show nothing (no data that day)
+    // This is correct — MODIS doesn't detect fires every day everywhere
+
+    if (!rows.length) {
+      _dotG.selectAll('circle').remove();
+      return;
+    }
+
     const maxFRP = d3.max(rows, r => r.frp) || 100;
-    const rScale = d3.scaleSqrt().domain([0, maxFRP]).range([3, 14]).clamp(true);
+    const rScale = d3.scaleSqrt().domain([0, maxFRP]).range([4, 16]).clamp(true);
 
     _dotG.selectAll('circle')
       .data(rows, r => r.id)
@@ -211,11 +217,18 @@ const MapViz = (() => {
       lon:        parseFloat(r.longitude || r.LONGITUDE),
       brightness: parseFloat(r.brightness || r.BRIGHTNESS || 350),
       frp:        parseFloat(r.frp || r.FRP || 10),
-      daynight:   (r.daynight || r.DAYNIGHT || 'D').toUpperCase(),
+      daynight:   (r.daynight || r.DAYNIGHT || 'D').trim().toUpperCase(),
     })).filter(r => !isNaN(r.lat) && !isNaN(r.lon) && r.date);
 
-    console.log(`[hotspots] ${_allRows.length} valid rows loaded`);
-    // Redraw dots if a date is already set
+    // Log a sample so we can verify field parsing
+    if (_allRows.length > 0) {
+      const s = _allRows[0];
+      console.log(`[hotspots] ${_allRows.length} rows. Sample: date=${s.date} daynight=${s.daynight} frp=${s.frp} brightness=${s.brightness}`);
+    } else {
+      console.warn('[hotspots] 0 valid rows after parsing');
+    }
+
+    // Only draw if _date is already set (setDate was called before loadHotspots)
     if (_date) _drawDots(_date);
   }
 

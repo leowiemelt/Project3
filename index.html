@@ -4,16 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>California on Fire — MODIS Wildfire Explorer</title>
-
+ 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-
+ 
   <script src="https://d3js.org/d3.v7.min.js"></script>
-
+ 
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-
+ 
   <header>
     <div class="header-inner">
       <div class="title-block">
@@ -31,7 +31,7 @@
       </div>
     </div>
   </header>
-
+ 
   <nav class="controls-bar">
     <div class="control-group">
       <span class="control-label">SATELLITE LAYER</span>
@@ -50,7 +50,7 @@
       <span id="county-hover-label" class="county-hover-label">—</span>
     </div>
   </nav>
-
+ 
   <main class="viz-layout">
 
     <div class="map-panel">
@@ -58,12 +58,12 @@
         <canvas id="tile-canvas"></canvas>
         <svg id="map-svg"></svg>
         <div id="map-tooltip" class="tooltip hidden"></div>
-        <div class="map-hint">Scroll to zoom · Drag to pan · Click county for stats</div>
+        <div class="map-hint">Click a county for fire statistics</div>
       </div>
     </div>
-
+ 
     <aside class="sidebar">
-
+ 
       <div class="card" id="county-card">
         <div class="card-label">COUNTY DETAIL</div>
         <div id="county-name" class="county-name-display">Click a county</div>
@@ -86,25 +86,22 @@
           </div>
         </div>
       </div>
-
-      <!-- Yearly bar chart -->
+ 
       <div class="card chart-card">
         <div class="card-label">STATEWIDE ACRES BURNED PER YEAR
           <span class="card-sublabel">· click bar to jump</span>
         </div>
         <svg id="bar-chart"></svg>
       </div>
-
-      <!-- Top fires -->
+ 
       <div class="card">
         <div class="card-label">LARGEST FIRES ON RECORD</div>
         <ol id="top-fires-list" class="top-fires-list"></ol>
       </div>
-
+ 
     </aside>
   </main>
-
-  <!-- ═══ TIME SLIDER ═══════════════════════════════════════════ -->
+ 
   <section class="slider-section">
     <div class="slider-inner">
       <button id="play-btn" class="play-btn" title="Play / Pause">▶</button>

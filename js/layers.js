@@ -1,125 +1,74 @@
-import { map } from "./map.js";
+const Layers = (() => {
 
-let nasaLayer;
-let fireLayer;
-let countyLayer;
-
-export function updateNasaLayer(date) {
-
-  if (nasaLayer) {
-    map.removeLayer(nasaLayer);
-  }
-
-  nasaLayer = L.tileLayer(
-    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
-    {
-      tileSize: 256,
-      attribution: "NASA GIBS"
-    }
-  );
-
-  nasaLayer.addTo(map);
-}
-
-
-export async function loadCountyLayer() {
-
-  const counties = await d3.json("../data/ca-counties.geojson");
-
-  countyLayer = L.geoJSON(counties, {
-
-    style: {
-      color: "#888",
-      weight: 1,
-      fillOpacity: 0
+  const LAYER_DEFS = {
+    'MODIS_Terra_Thermal_Anomalies_Day': {
+      id:        'MODIS_Terra_Thermal_Anomalies_Day',
+      matrixSet: '1km',
+      ext:       'png',
+      isOverlay: true,
     },
-
-    onEachFeature: (feature, layer) => {
-
-      layer.on("mouseover", () => {
-
-        layer.setStyle({
-          color: "white",
-          weight: 2
-        });
-
-        document.getElementById("county-name").innerText =
-          feature.properties.name || "Unknown";
-      });
-
-      layer.on("mouseout", () => {
-
-        countyLayer.resetStyle(layer);
-
-        document.getElementById("county-name").innerText = "None";
-      });
-    }
-
-  }).addTo(map);
-}
-
-export async function loadFireLayer(date) {
-
-  if (fireLayer) {
-    map.removeLayer(fireLayer);
-  }
-
-  const fireData = await d3.json("../data/calfire.geojson");
-
-  const filtered = {
-    type: "FeatureCollection",
-    features: fireData.features.filter(f => {
-
-      // if no date field, keep it
-      if (!f.properties) return false;
-
-      const fireDate =
-        f.properties.date ||
-        f.properties.Date ||
-        f.properties.ALARM_DATE ||
-        f.properties.Updated;
-
-      if (!fireDate) return true;
-
-      return fireDate <= date;
-    })
+    'MODIS_Terra_Thermal_Anomalies_Night': {
+      id:        'MODIS_Terra_Thermal_Anomalies_Night',
+      matrixSet: '1km',
+      ext:       'png',
+      isOverlay: true,
+    },
+    'MODIS_Terra_CorrectedReflectance_TrueColor': {
+      id:        'MODIS_Terra_CorrectedReflectance_TrueColor',
+      matrixSet: '250m',
+      ext:       'jpg',
+      isOverlay: false,
+    },
   };
 
-  document.getElementById("fire-count").innerText = filtered.features.length;
+  const BASEMAP_DEF = LAYER_DEFS['MODIS_Terra_CorrectedReflectance_TrueColor'];
 
-  console.log("Filtered fires:", filtered.features.length);
+  let _activeLayerId = 'MODIS_Terra_Thermal_Anomalies_Day';
+  const _listeners   = [];
 
-  fireLayer = L.geoJSON(filtered, {
-    style: (feature) => {
+  // ── URL builder ────────────────────────────────────────────
 
-      const acres =
-        feature.properties?.AcresBurned ||
-        feature.properties?.GIS_ACRES ||
-        1000;
+  function tileUrl(layerId, date, z, y, x) {
+    const def = LAYER_DEFS[layerId];
+    if (!def) return '';
+    return `https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/${def.id}/default/${date}/${def.matrixSet}/${z}/${y}/${x}.${def.ext}`;
+  }
 
-      let color = "yellow";
+  // ── Render stack ───────────────────────────────────────────
+  // Returns layers in draw order: basemap first, overlays on top.
 
-      if (acres > 10000) color = "red";
-      else if (acres > 3000) color = "orange";
+  function getRenderStack() {
+    const active = LAYER_DEFS[_activeLayerId];
+    if (!active.isOverlay) return [active];          // TrueColor only
+    return [BASEMAP_DEF, active];                    // TrueColor + fire overlay
+  }
 
-      return {
-        color,
-        fillColor: color,
-        weight: 1,
-        fillOpacity: 0.5
-      };
-    },
+  // ── Accessors ──────────────────────────────────────────────
 
-    onEachFeature: (feature, layer) => {
+  function getLayer()    { return _activeLayerId; }
+  function getLayerDef() { return LAYER_DEFS[_activeLayerId]; }
 
-      layer.bindTooltip(`
-        <div class="fire-tooltip">
-          <strong>${feature.properties?.name || feature.properties?.FIRE_NAME || "Fire"}</strong><br/>
-          Acres: ${feature.properties?.AcresBurned || feature.properties?.GIS_ACRES || "Unknown"}<br/>
-          County: ${feature.properties?.County || feature.properties?.COUNTY || "Unknown"}
-        </div>
-      `);
-    }
+  // ── Mutation ───────────────────────────────────────────────
 
-  }).addTo(map);
-}
+  function setLayer(layerId) {
+    if (layerId === _activeLayerId || !LAYER_DEFS[layerId]) return;
+    _activeLayerId = layerId;
+    _listeners.forEach(fn => fn(_activeLayerId));
+  }
+
+  function onChange(fn) { _listeners.push(fn); }
+
+  // ── DOM button wiring ──────────────────────────────────────
+
+  function initButtons() {
+    document.querySelectorAll('.layer-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setLayer(btn.dataset.layer);
+      });
+    });
+  }
+
+  return { tileUrl, getLayer, getLayerDef, getRenderStack, setLayer, onChange, initButtons, LAYER_DEFS };
+})();

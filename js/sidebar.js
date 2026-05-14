@@ -1,63 +1,53 @@
-/**
- * sidebar.js
- * Renders the statewide acres-burned bar chart and the county detail card.
- * Reads from the CAL FIRE FRAP GeoJSON loaded by main.js.
- *
- * Expected data shape passed into init():
- *   fireData = {
- *     byYear:   Map<string, number>   year → total acres
- *     byCounty: Map<string, { fires, acres, largest, worstYear }>
- *     topFires: Array<{ name, acres, year, county }>  (sorted desc)
- *   }
- */
-
 const Sidebar = (() => {
   let _fireData = null;
 
-  // ── Bar chart ───────────────────────────────────────────────
 
   function _renderBarChart() {
-    const svg = d3.select('#bar-chart');
-    const containerWidth = document.getElementById('bar-chart').parentElement.clientWidth - 32;
-    const W = containerWidth > 0 ? containerWidth : 270;
-    const H = 160;
-    const margin = { top: 8, right: 4, bottom: 24, left: 38 };
-    const innerW = W - margin.left - margin.right;
-    const innerH = H - margin.top - margin.bottom;
+    const svgEl = document.getElementById('bar-chart');
+    const W = svgEl.parentElement.clientWidth - 32;
+    const H = 155;
+    const m = { top: 6, right: 4, bottom: 22, left: 36 };
+    const iW = W - m.left - m.right;
+    const iH = H - m.top  - m.bottom;
 
-    svg.attr('viewBox', `0 0 ${W} ${H}`).attr('width', W).attr('height', H);
+    const svg = d3.select('#bar-chart')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('width', W)
+      .attr('height', H);
+
     svg.selectAll('*').remove();
 
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
     const years = Array.from(_fireData.byYear.keys()).sort();
-    const acres = years.map(y => _fireData.byYear.get(y));
+    const vals  = years.map(y => _fireData.byYear.get(y) || 0);
 
-    const x = d3.scaleBand().domain(years).range([0, innerW]).padding(0.12);
-    const y = d3.scaleLinear().domain([0, d3.max(acres)]).nice().range([innerH, 0]);
+    const xScale = d3.scaleBand().domain(years).range([0, iW]).padding(0.1);
+    const yScale = d3.scaleLinear().domain([0, d3.max(vals)]).nice().range([iH, 0]);
 
-    // Axes
+    // X axis — tick every 4 years
     g.append('g')
       .attr('class', 'axis')
-      .attr('transform', `translate(0,${innerH})`)
+      .attr('transform', `translate(0,${iH})`)
       .call(
-        d3.axisBottom(x)
+        d3.axisBottom(xScale)
           .tickValues(years.filter((_, i) => i % 4 === 0))
           .tickSize(0)
       )
       .call(ax => ax.select('.domain').remove());
 
+    // Y axis with grid lines
     g.append('g')
       .attr('class', 'axis')
       .call(
-        d3.axisLeft(y)
+        d3.axisLeft(yScale)
           .ticks(4)
-          .tickFormat(d => d >= 1e6 ? `${(d/1e6).toFixed(1)}M` : d >= 1e3 ? `${(d/1e3).toFixed(0)}K` : d)
-          .tickSize(-innerW)
+          .tickFormat(v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v)
+          .tickSize(-iW)
       )
       .call(ax => {
         ax.select('.domain').remove();
-        ax.selectAll('.tick line').attr('stroke', '#252525');
+        ax.selectAll('.tick line').attr('stroke', '#242424');
       });
 
     // Bars
@@ -66,37 +56,32 @@ const Sidebar = (() => {
       .join('rect')
         .attr('class', 'bar')
         .attr('data-year', d => d)
-        .attr('x', d => x(d))
-        .attr('y', d => y(_fireData.byYear.get(d) || 0))
-        .attr('width', x.bandwidth())
-        .attr('height', d => innerH - y(_fireData.byYear.get(d) || 0))
-        .on('click', (event, year) => {
-          Slider.jumpToYear(year);
-        })
+        .attr('x', d => xScale(d))
+        .attr('y', d => yScale(_fireData.byYear.get(d) || 0))
+        .attr('width', xScale.bandwidth())
+        .attr('height', d => iH - yScale(_fireData.byYear.get(d) || 0))
+        .on('click', (_, year) => Slider.jumpToYear(year))
         .on('mouseover', function(event, year) {
-          const acresVal = _fireData.byYear.get(year) || 0;
-          showTooltipNear(event, `${year}: ${d3.format(',')(Math.round(acresVal))} acres`);
+          const v = _fireData.byYear.get(year) || 0;
+          _showBarTip(event, `${year}: ${d3.format(',')(Math.round(v))} acres`);
         })
-        .on('mouseout', hideTooltip);
+        .on('mouseout', _hideBarTip);
   }
 
-  // Simple inline tooltip for bar chart (uses map tooltip element)
-  function showTooltipNear(event, text) {
+  function _showBarTip(event, text) {
     const tip = document.getElementById('map-tooltip');
     if (!tip) return;
     tip.innerHTML = text;
     tip.classList.remove('hidden');
-    tip.style.left = `${event.pageX + 10}px`;
-    tip.style.top  = `${event.pageY - 28}px`;
     tip.style.position = 'fixed';
+    tip.style.left = `${event.clientX + 10}px`;
+    tip.style.top  = `${event.clientY - 28}px`;
   }
 
-  function hideTooltip() {
-    const tip = document.getElementById('map-tooltip');
-    if (tip) tip.classList.add('hidden');
+  function _hideBarTip() {
+    document.getElementById('map-tooltip')?.classList.add('hidden');
   }
 
-  // ── Top fires list ──────────────────────────────────────────
 
   function _renderTopFires() {
     const list = document.getElementById('top-fires-list');
@@ -114,19 +99,28 @@ const Sidebar = (() => {
 
   function selectCounty(countyName) {
     document.getElementById('county-name').textContent = countyName;
-    const stats = _fireData.byCounty.get(countyName.toUpperCase());
+    document.getElementById('county-hover-label').textContent = countyName;
+
+    // Try matching by county name (normalized)
+    const key = countyName.toUpperCase().replace(' COUNTY', '').trim();
+    // Look up by various possible keys
+    let stats = _fireData.byCounty.get(key)
+             || _fireData.byCounty.get(countyName.toUpperCase())
+             || _fireData.byCounty.get(countyName.toUpperCase() + ' COUNTY');
 
     const statsEl = document.getElementById('county-stats');
     if (!stats) {
       statsEl.style.display = 'none';
       return;
     }
+
     statsEl.style.display = 'block';
-    document.getElementById('stat-fires').textContent    = d3.format(',')(stats.fires);
-    document.getElementById('stat-acres').textContent    = d3.format(',.0f')(stats.acres);
-    document.getElementById('stat-largest').textContent  = stats.largest || '—';
+    document.getElementById('stat-fires').textContent = d3.format(',')(stats.fires);
+    document.getElementById('stat-acres').textContent = d3.format(',.0f')(stats.acres);
+    document.getElementById('stat-largest').textContent = stats.largest  || '—';
     document.getElementById('stat-worst-year').textContent = stats.worstYear || '—';
   }
+
 
   function init(fireData) {
     _fireData = fireData;

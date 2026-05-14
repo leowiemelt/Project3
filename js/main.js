@@ -67,7 +67,7 @@ function processGeoData(geojson) {
     all.push({ name, acres, year });
   });
 
-  _ok(`calfire: ${all.length} fires, ${byCounty.size} counties`);
+  console.log(`calfire: ${all.length} fires, ${byCounty.size} counties`);
   if (byCounty.size === 0) console.warn('calfire: county field not matched — check field names above');
 
   const topFires = [...all].sort((a,b)=>b.acres-a.acres).slice(0,8);
@@ -93,7 +93,7 @@ function processCsvData(rows, countiesGeo) {
     byMonth.set(mo, (byMonth.get(mo) || 0) + frp);
   });
 
-  _ok(`fires.csv: ${rows.length} rows, ${byMonth.size} months`);
+  console.log(`fires.csv: ${rows.length} rows, ${byMonth.size} months`);
   console.log('months: ' + [...byMonth.keys()].sort().join(', '));
 
   _spatialJob = { rows, countiesGeo, byCounty };
@@ -136,7 +136,7 @@ function _runSpatialJoin() {
     if (i < rows.length) {
       setTimeout(step, 0);
     } else {
-      _ok(`spatial join done: ${byCounty.size} counties`);
+      console.log(`spatial join done: ${byCounty.size} counties`);
     }
   }
   setTimeout(step, 100);
@@ -231,8 +231,7 @@ async function main() {
     console.warn('FATAL: ' + err.message);
     loadingEl.innerHTML = `
       <div class="loading-text" style="color:#f66;text-align:center;padding:20px;line-height:2">
-        ⚠ ERROR: ${err.message}<br>
-        <span style="font-size:.6rem;color:#999">See debug panel (top-right)</span>
+        ⚠ ERROR: ${err.message}
       </div>`;
   }
 }

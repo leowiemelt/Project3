@@ -1,80 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>California Fire Explorer</title>
+  <meta charset="utf-8" />
+  <title>California Wildfires 2020</title>
 
   <link
     rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
   />
 
   <link rel="stylesheet" href="css/style.css" />
 
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
 
-  <div id="container">
-
-    <!-- SIDEBAR -->
-    <div id="sidebar">
-      <h1>California Fire Explorer</h1>
-
-      <p>
-        Explore California wildfire activity over time using
-        NASA MODIS satellite imagery and CAL FIRE data.
-      </p>
-
-      <div class="stat-box">
-        <h3>Current Date</h3>
-        <p id="current-date">2020-08-01</p>
-      </div>
-
-      <div class="stat-box">
-        <h3>Visible Fires</h3>
-        <p id="fire-count">0</p>
-      </div>
-
-      <div class="stat-box">
-        <h3>Selected County</h3>
-        <p id="county-name">None</p>
-      </div>
-
-      <button id="play-button">▶ Play</button>
-
-      <div id="legend">
-        <h3>Legend</h3>
-
-        <div><span class="legend red"></span> Large Fire</div>
-        <div><span class="legend orange"></span> Medium Fire</div>
-        <div><span class="legend yellow"></span> Small Fire</div>
-      </div>
-    </div>
-
-    <!-- MAP -->
-    <div id="map-container">
-      <div id="map"></div>
-
-      <!-- SLIDER -->
-      <div id="slider-container">
-        <input
-          type="range"
-          id="date-slider"
-          min="0"
-          max="60"
-          step="1"
-          value="0"
-        />
-      </div>
-    </div>
-
+  <div id="controls">
+    <input type="range" id="dateSlider" />
+    <span id="dateLabel"></span>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <div id="map"></div>
+
+  <script src="js/map.js"></script>
+  <script src="js/slider.js"></script>
+  <script src="js/main.js"></script>
   <section class="writeup">
     <div class="writeup-inner">
  
@@ -128,17 +80,6 @@
         parameter updates on every slider change. Daily cloud cover can occasionally obscure
         imagery — comparing nearby dates usually resolves this.
       </p>
- 
-      <h3>Development Process</h3>
-      <p><em>Team: [Add names here]</em></p>
-      <p>
-        Work was split as follows: [describe who did what]. Total development time was
-        approximately [X] person-hours. The most time-consuming aspects were aligning the
-        GIBS WMTS tile coordinate system with the D3 geographic projection for California,
-        and computing county-level aggregates from the CAL FIRE GeoJSON.
-        [Expand before final submission.]
-      </p>
- 
     </div>
   </section>
 </body>

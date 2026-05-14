@@ -14,7 +14,7 @@
   --text-muted:  #555;
   --text-dim:    #2a2a2a;
 
-  --map-h:       520px;     
+  --map-h:       520px;   
   --header-h:    72px;
   --controls-h:  52px;
   --slider-h:    76px;
@@ -203,6 +203,7 @@ input[type="range"]#opacity-slider {
   height: 100%;
 }
 
+/* County paths */
 .county-path {
   fill: transparent;
   stroke: rgba(255,106,0,0.2);
@@ -247,6 +248,7 @@ input[type="range"]#opacity-slider {
 
 #map-container { touch-action: none; }
 
+/* Tooltip */
 .tooltip {
   position: absolute;
   pointer-events: none;
@@ -266,6 +268,7 @@ input[type="range"]#opacity-slider {
 .tooltip.hidden { opacity: 0; pointer-events: none; }
 .tooltip-title { color: var(--fire-hi); font-size: 0.68rem; font-weight: 700; margin-bottom: 2px; }
 
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
   background: var(--bg2);
@@ -284,18 +287,19 @@ input[type="range"]#opacity-slider {
 
 .card-label {
   font-family: var(--font-mono);
-  font-size: 0.54rem;
-  color: var(--text-muted);
-  letter-spacing: 0.14em;
+  font-size: 0.6rem;
+  color: #888;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 8px;
+  line-height: 1.4;
 }
 
 .card-sublabel {
-  color: var(--text-dim);
+  color: var(--text-muted);
   text-transform: none;
   letter-spacing: 0;
-  font-size: 0.52rem;
+  font-size: 0.58rem;
 }
 
 .county-name-display {
@@ -439,6 +443,7 @@ input[type="range"]#date-slider {
   cursor: pointer;
 }
 
+/* ── WRITEUP ─────────────────────────────────────────────────── */
 .writeup {
   background: var(--bg2);
   border-top: 2px solid var(--border-hi);

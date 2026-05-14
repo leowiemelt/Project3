@@ -8,14 +8,13 @@ const MapViz = (() => {
   const WMS_BASE = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
   const IMG_SIZE = 800; // px requested from WMS (square)
 
-  let _date    = null;
-  let _layer   = 'MODIS_Terra_Thermal_Anomalies_Day';
+  let _date = null;
+  let _layer = 'MODIS_Terra_Thermal_Anomalies_Day';
   let _opacity = 0.85;
   let _W = 0, _H = 0;       
-  let _drawId  = 0;          
+  let _drawId = 0;          
 
   let _canvas, _ctx, _svg, _tooltip, _countyG;
-
   let _project, _path;
 
   const _cache = new Map();
@@ -167,9 +166,9 @@ const MapViz = (() => {
   }
 
 
-  function setDate(date)   { _date    = date;          _draw(); }
-  function setLayer(layer) { _layer   = layer;         _draw(); }
-  function setOpacity(v)   { _opacity = parseFloat(v); _draw(); }
+  function setDate(date) { _date = date; _draw(); }
+  function setLayer(layer) { _layer = layer; _draw(); }
+  function setOpacity(v) { _opacity = parseFloat(v); _draw(); }
 
   function init() {
     _canvas  = document.getElementById('tile-canvas');

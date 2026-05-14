@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   fireLayer = L.layerGroup().addTo(map);
 
-  const data = await d3.csv("data/fires.csv", d3.autoType);
+  const data = await d3.csv("../data/fires.csv", d3.autoType);
 
   // Filter to California bounding box
   allFires = data.filter(d =>

@@ -112,12 +112,6 @@ const Sidebar = (() => {
     });
   }
 
-  // ── County detail card ──────────────────────────────────────
-
-  /**
-   * Update the county detail card when a county is clicked on the map.
-   * @param {string} countyName
-   */
   function selectCounty(countyName) {
     document.getElementById('county-name').textContent = countyName;
     const stats = _fireData.byCounty.get(countyName.toUpperCase());
@@ -134,12 +128,6 @@ const Sidebar = (() => {
     document.getElementById('stat-worst-year').textContent = stats.worstYear || '—';
   }
 
-  // ── Public API ──────────────────────────────────────────────
-
-  /**
-   * Initialize sidebar with processed fire data.
-   * @param {object} fireData  - { byYear, byCounty, topFires }
-   */
   function init(fireData) {
     _fireData = fireData;
     _renderBarChart();

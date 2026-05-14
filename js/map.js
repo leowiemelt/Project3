@@ -1,241 +1,232 @@
 const MapViz = (() => {
 
-  const CA_BOUNDS  = [-124.48, 32.53, -114.13, 42.01];
-  const PAD = 1.0;                               
-  const Z_FIRE = 5;
-  const Z_TRUECOLOR = 7;
+  const WEST  = -124.48;
+  const SOUTH =   32.53;
+  const EAST  = -114.13;
+  const NORTH =   42.01;
+
+  const WMS_PX = 800;
+
+  // GIBS WMS base URL
+  const WMS_BASE = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+
+  const LAYER_FORMAT = {
+    'MODIS_Terra_Thermal_Anomalies_Day':   'image/png',
+    'MODIS_Terra_Thermal_Anomalies_Night': 'image/png',
+    'MODIS_Terra_CorrectedReflectance_TrueColor': 'image/jpeg',
+  };
 
   let _date = null;
   let _layer = null;
   let _opacity = 0.85;
-  let _transform = d3.zoomIdentity;
   let _proj = null;
   let _path = null;
   let _geo = null;
+  let _W = 0,  _H = 0;
 
-  let _canvas, _ctx, _svg, _tooltip;
-  let _W, _H;
+  // Canvas, SVG refs
+  let _canvas, _ctx, _mapSvg, _countyG, _tooltip;
 
-  const _cache = new Map();
+  const _imgCache = new Map();
 
-
-  function _setupProj() {
+  function _buildProj() {
     const el = document.getElementById('map-container');
-    _W = el.clientWidth;
-    _H = el.clientHeight;
-    _canvas.width = _W;
+    _W = el.clientWidth  || 800;
+    _H = el.clientHeight || 520;
+
+    _canvas.width  = _W;
     _canvas.height = _H;
-    _svg.attr('width', _W).attr('height', _H);
+
+    _mapSvg
+      .attr('width',  _W)
+      .attr('height', _H);
+
+    const caFeature = {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [WEST,  SOUTH],
+          [EAST,  SOUTH],
+          [EAST,  NORTH],
+          [WEST,  NORTH],
+          [WEST,  SOUTH],
+        ]]
+      }
+    };
 
     _proj = d3.geoEquirectangular()
-      .fitExtent([[28, 28], [_W - 28, _H - 28]], {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[
-            [CA_BOUNDS[0], CA_BOUNDS[1]],
-            [CA_BOUNDS[2], CA_BOUNDS[1]],
-            [CA_BOUNDS[2], CA_BOUNDS[3]],
-            [CA_BOUNDS[0], CA_BOUNDS[3]],
-            [CA_BOUNDS[0], CA_BOUNDS[1]],
-          ]]
-        }
-      });
+      .fitExtent([[0, 0], [_W, _H]], caFeature);
 
     _path = d3.geoPath(_proj);
   }
 
-  function _lonLatToTile(lon, lat, z) {
-    const nX = Math.pow(2, z + 1);
-    const nY = Math.pow(2, z);
-    return {
-      x: Math.floor((lon + 180) / 360 * nX),
-      y: Math.floor((90  - lat) / 180 * nY),
-    };
+  function _wmsUrl(layer, date) {
+    const fmt = LAYER_FORMAT[layer] || 'image/png';
+    const params = new URLSearchParams({
+      SERVICE:     'WMS',
+      REQUEST:     'GetMap',
+      VERSION:     '1.1.1',
+      LAYERS:      layer,
+      SRS:         'EPSG:4326',
+      BBOX:        `${WEST},${SOUTH},${EAST},${NORTH}`,
+      WIDTH:       WMS_PX,
+      HEIGHT:      WMS_PX,
+      FORMAT:      fmt,
+      TIME:        date,
+      TRANSPARENT: 'true',
+      STYLES:      '',
+    });
+    return `${WMS_BASE}?${params.toString()}`;
   }
 
-  function _tileOrigin(tx, ty, z) {
-    const nX = Math.pow(2, z + 1);
-    const nY = Math.pow(2, z);
-    return {
-      lon: tx / nX * 360 - 180,
-      lat: 90 - ty / nY * 180,
-    };
-  }
-
-  function _zoom(layerDef) {
-    const base = layerDef.matrixSet === '250m' ? Z_TRUECOLOR : Z_FIRE;
-    return Math.min(base, base + Math.floor(Math.log2(_transform.k)));
-  }
-
-
-  function _loadTile(layerId, date, z, ty, tx) {
-    const key = `${layerId}/${date}/${z}/${ty}/${tx}`;
-    if (_cache.has(key)) return _cache.get(key);
-    const url = Layers.tileUrl(layerId, date, z, ty, tx);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    const p = new Promise(res => {
-      img.onload = () => res(img);
-      img.onerror = () => res(null);
+  function _loadImage(url) {
+    if (_imgCache.has(url)) {
+      return Promise.resolve(_imgCache.get(url));
+    }
+    return new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload  = () => { _imgCache.set(url, img); resolve(img); };
+      img.onerror = () => resolve(null);
       img.src = url;
     });
-    _cache.set(key, p);
-    return p;
   }
 
 
-  function _applyZoom(pt) {
-    if (!pt) return null;
-    return [_transform.x + pt[0] * _transform.k, _transform.y + pt[1] * _transform.k];
-  }
-
-  async function _renderLayer(layerDef, date, alpha) {
-    const z = _zoom(layerDef);
-    const tl = _lonLatToTile(CA_BOUNDS[0] - PAD, CA_BOUNDS[3] + PAD, z);
-    const br = _lonLatToTile(CA_BOUNDS[2] + PAD, CA_BOUNDS[1] - PAD, z);
-    const ps = [];
-
-    for (let ty = tl.y; ty <= br.y; ty++) {
-      for (let tx = tl.x; tx <= br.x; tx++) {
-        ps.push(
-          _loadTile(layerDef.id, date, z, ty, tx).then(img => {
-            if (!img) return;
-            const { lon: l0, lat: a0 } = _tileOrigin(tx,     ty,     z);
-            const { lon: l1, lat: a1 } = _tileOrigin(tx + 1, ty + 1, z);
-            const p0 = _applyZoom(_proj([l0, a0]));
-            const p1 = _applyZoom(_proj([l1, a1]));
-            if (!p0 || !p1) return;
-            const [px, py, pw, ph] = [p0[0], p0[1], p1[0] - p0[0], p1[1] - p0[1]];
-            if (px + pw < 0 || px > _W || py + ph < 0 || py > _H) return;
-            _ctx.globalAlpha = alpha;
-            _ctx.drawImage(img, px, py, pw, ph);
-          })
-        );
-      }
-    }
-    await Promise.all(ps);
-  }
-
-  async function _renderTiles() {
+  async function _draw() {
     if (!_date || !_layer) return;
     _ctx.clearRect(0, 0, _W, _H);
-    for (const layerDef of Layers.getRenderStack()) {
-      await _renderLayer(layerDef, _date, layerDef.isOverlay ? _opacity : 1.0);
+
+    const baseUrl = _wmsUrl('MODIS_Terra_CorrectedReflectance_TrueColor', _date);
+    const baseImg = await _loadImage(baseUrl);
+    if (baseImg) {
+      _ctx.globalAlpha = 1.0;
+      _ctx.drawImage(baseImg, 0, 0, _W, _H);
     }
-    _ctx.globalAlpha = 1.0;
-  }
 
-  function _renderCounties() {
-    if (!_geo) return;
-    const g = _svg.select('g.county-layer');
-    const zp = d3.geoTransform({
-      point(lon, lat) {
-        const [px, py] = _proj([lon, lat]);
-        this.stream.point(
-          _transform.x + px * _transform.k,
-          _transform.y + py * _transform.k
-        );
+    if (_layer !== 'MODIS_Terra_CorrectedReflectance_TrueColor') {
+      const fireUrl = _wmsUrl(_layer, _date);
+      const fireImg = await _loadImage(fireUrl);
+      if (fireImg) {
+        _ctx.globalAlpha = _opacity;
+        _ctx.drawImage(fireImg, 0, 0, _W, _H);
+        _ctx.globalAlpha = 1.0;
       }
-    });
-    const pf = d3.geoPath(zp);
-    g.selectAll('.county-path').attr('d', d => pf(d));
-    g.select('.state-outline').attr('d', pf({ type: 'FeatureCollection', features: _geo.features }));
+    }
   }
-
-  function _setupZoom() {
-    _svg.call(
-      d3.zoom()
-        .scaleExtent([0.8, 25])
-        .on('zoom', e => {
-          _transform = e.transform;
-          _renderCounties();
-          _renderTiles();
-        })
-    );
-  }
-
-
-  function _tip(ev, html) {
-    _tooltip.innerHTML = html;
-    _tooltip.classList.remove('hidden');
-    const r  = document.getElementById('map-container').getBoundingClientRect();
-    let tx = ev.clientX - r.left + 14;
-    let ty = ev.clientY - r.top  - 10;
-    if (tx + 190 > _W) tx -= 218;
-    if (ty + 60  > _H) ty  = _H - 70;
-    _tooltip.style.left = `${tx}px`;
-    _tooltip.style.top  = `${ty}px`;
-  }
-
-  function _hideTip() { _tooltip.classList.add('hidden'); }
-
 
   function loadCounties(geojson) {
     _geo = geojson;
-    const g = _svg.append('g').attr('class', 'county-layer');
 
-    g.append('path')
+    _mapSvg.selectAll('g.county-layer').remove();
+    _countyG = _mapSvg.append('g').attr('class', 'county-layer');
+
+    _countyG.append('path')
       .datum({ type: 'FeatureCollection', features: geojson.features })
       .attr('class', 'state-outline')
       .attr('d', _path);
 
-    g.selectAll('.county-path')
+    _countyG.selectAll('.county-path')
       .data(geojson.features)
       .join('path')
         .attr('class', 'county-path')
-        .attr('d', d => _path(d))
+        .attr('d', _path)
         .on('mouseover', function(ev, d) {
           const name = d.properties.name || d.properties.NAME || 'Unknown';
-          _tip(ev, `<div class="tooltip-title">${name} County</div>Click for fire stats`);
-          document.getElementById('county-hover-label').textContent = name;
+          _showTip(ev, `<div class="tooltip-title">${name} County</div>Click for fire stats`);
         })
         .on('mousemove', function(ev, d) {
           const name = d.properties.name || d.properties.NAME || 'Unknown';
-          _tip(ev, `<div class="tooltip-title">${name} County</div>Click for fire stats`);
+          _showTip(ev, `<div class="tooltip-title">${name} County</div>Click for fire stats`);
         })
-        .on('mouseout', () => {
-          _hideTip();
-          document.getElementById('county-hover-label').textContent = '—';
-        })
+        .on('mouseout', () => _hideTip())
         .on('click', function(ev, d) {
-          _svg.selectAll('.county-path').classed('selected', false);
+          ev.stopPropagation();
+          _countyG.selectAll('.county-path').classed('selected', false);
           d3.select(this).classed('selected', true);
           const name = d.properties.name || d.properties.NAME || 'Unknown';
           Sidebar.selectCounty(name);
-          ev.stopPropagation();
         });
 
-    _svg.on('click', () => {
-      _svg.selectAll('.county-path').classed('selected', false);
+    // Click on SVG background → deselect
+    _mapSvg.on('click', function() {
+      _countyG.selectAll('.county-path').classed('selected', false);
       document.getElementById('county-name').textContent = 'Click a county';
       document.getElementById('county-stats').style.display = 'none';
-      document.getElementById('county-hover-label').textContent = '—';
     });
+
+    // Set up zoom AFTER counties are drawn
+    _setupZoom();
+  }
+
+  function _setupZoom() {
+    const zoom = d3.zoom()
+      .scaleExtent([1, 12])
+      .on('zoom', ev => {
+        _countyG.attr('transform', ev.transform);
+      });
+
+    _mapSvg.call(zoom);
+
+    // Fit California to fill the viewport on load (no extra zoom needed)
+    _mapSvg.call(zoom.transform, d3.zoomIdentity);
   }
 
 
-  function setDate(date)    { _date    = date;            _renderTiles(); }
-  function setLayer(layer)  { _layer   = layer;           _renderTiles(); }
-  function setOpacity(v)    { _opacity = parseFloat(v);   _renderTiles(); }
+  function _showTip(ev, html) {
+    _tooltip.innerHTML = html;
+    _tooltip.classList.remove('hidden');
+    const r = _canvas.getBoundingClientRect();
+    let tx = ev.clientX - r.left + 12;
+    let ty = ev.clientY - r.top  - 8;
+    if (tx + 200 > _W) tx = tx - 200 - 24;
+    if (ty < 0) ty = 4;
+    _tooltip.style.left = `${tx}px`;
+    _tooltip.style.top  = `${ty}px`;
+  }
+
+  function _hideTip() {
+    _tooltip.classList.add('hidden');
+  }
+
+  function setDate(date) {
+    _date = date;
+    _draw();
+  }
+
+  function setLayer(layer) {
+    _layer = layer;
+    _draw();
+  }
+
+  function setOpacity(v) {
+    _opacity = parseFloat(v);
+    _draw();
+  }
 
   function init() {
-    _canvas  = document.getElementById('tile-canvas');
+    _canvas = document.getElementById('tile-canvas');
     _ctx = _canvas.getContext('2d');
-    _svg = d3.select('#map-svg');
+    _mapSvg = d3.select('#map-svg');
     _tooltip = document.getElementById('map-tooltip');
 
-    _setupProj();
-    _setupZoom();
+    _buildProj();
     _layer = Layers.getLayer();
 
+    // Opacity slider
     document.getElementById('opacity-slider')
       ?.addEventListener('input', e => setOpacity(e.target.value));
 
+    // Redraw on resize
     window.addEventListener('resize', () => {
-      _setupProj();
-      _renderCounties();
-      _renderTiles();
+      _buildProj();
+      // Redraw county paths with new projection
+      if (_geo) {
+        _countyG.selectAll('.county-path').attr('d', _path);
+        _countyG.select('.state-outline').attr('d', _path);
+      }
+      _draw();
     });
   }
 
